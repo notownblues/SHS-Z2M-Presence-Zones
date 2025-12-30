@@ -456,7 +456,7 @@ function showShapeActions(shape) {
     const scaleY = elements.radarCanvas.height / canvasRect.height;
 
     const displayX = rotatedCenterX / scaleX;
-    const displayY = (rotatedTopY / scaleY) - 45; // 45px above the shape
+    const displayY = (rotatedTopY / scaleY) - 60; // 60px above the shape top edge
 
     // Show/hide resize buttons based on item type (zones don't support resize)
     const showResizeButtons = selectedItemType !== 'zone';

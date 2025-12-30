@@ -29,8 +29,11 @@ export class DrawingManager {
         this.previewPolygon = [];
 
         // Handle size for hit testing
-        this.handleSize = 8;
-        this.furnitureHandleSize = 6;
+        this.handleSize = 10;
+        this.furnitureHandleSize = 9;
+
+        // Right-click drag state
+        this.isRightClickDragging = false;
 
         // Bind event handlers
         this.handleMouseDown = this.handleMouseDown.bind(this);
@@ -38,6 +41,7 @@ export class DrawingManager {
         this.handleMouseUp = this.handleMouseUp.bind(this);
         this.handleDoubleClick = this.handleDoubleClick.bind(this);
         this.handleKeyDown = this.handleKeyDown.bind(this);
+        this.handleContextMenu = this.handleContextMenu.bind(this);
 
         // Attach event listeners
         this.bindEvents();
@@ -48,6 +52,7 @@ export class DrawingManager {
         this.canvas.addEventListener('mousemove', this.handleMouseMove);
         this.canvas.addEventListener('mouseup', this.handleMouseUp);
         this.canvas.addEventListener('dblclick', this.handleDoubleClick);
+        this.canvas.addEventListener('contextmenu', this.handleContextMenu);
         document.addEventListener('keydown', this.handleKeyDown);
     }
 
@@ -56,7 +61,15 @@ export class DrawingManager {
         this.canvas.removeEventListener('mousemove', this.handleMouseMove);
         this.canvas.removeEventListener('mouseup', this.handleMouseUp);
         this.canvas.removeEventListener('dblclick', this.handleDoubleClick);
+        this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
         document.removeEventListener('keydown', this.handleKeyDown);
+    }
+
+    /**
+     * Prevent context menu on canvas (for right-click drag)
+     */
+    handleContextMenu(event) {
+        event.preventDefault();
     }
 
     /**
@@ -302,6 +315,12 @@ export class DrawingManager {
         const canvasCoords = this.getCanvasCoords(event);
         const sensorCoords = this.toSensorCoords(canvasCoords.x, canvasCoords.y);
 
+        // Right-click drag for selected items
+        if (event.button === 2) {
+            this.handleRightClickDrag(canvasCoords, sensorCoords);
+            return;
+        }
+
         switch (this.mode) {
             case 'select':
             case 'moving':
@@ -327,6 +346,72 @@ export class DrawingManager {
             case 'draw-edge':
                 this.handleEdgeMouseDown(sensorCoords);
                 break;
+        }
+    }
+
+    /**
+     * Handle right-click drag for moving selected items
+     */
+    handleRightClickDrag(canvasCoords, sensorCoords) {
+        // Check if we're clicking on the selected zone
+        if (this.selectedZoneIndex !== null) {
+            const zone = this.state.zones.zones[this.selectedZoneIndex];
+            if (zone && zone.enabled && this.isPointInZone(sensorCoords.x, sensorCoords.y, zone)) {
+                this.isRightClickDragging = true;
+                this.isDragging = true;
+                const corners = this.getZoneCorners(zone);
+                this.dragOffset = {
+                    x: sensorCoords.x - (corners.x1 + corners.x2) / 2,
+                    y: sensorCoords.y - (corners.y1 + corners.y2) / 2
+                };
+                this.canvas.style.cursor = 'move';
+                return;
+            }
+        }
+
+        // Check if we're clicking on the selected furniture
+        if (this.selectedFurnitureIndex !== null) {
+            const furniture = this.state.annotations.furniture[this.selectedFurnitureIndex];
+            if (furniture && this.isPointInFurniture(sensorCoords.x, sensorCoords.y, furniture)) {
+                this.isRightClickDragging = true;
+                this.isDragging = true;
+                this.dragOffset = {
+                    x: sensorCoords.x - furniture.x,
+                    y: sensorCoords.y - furniture.y
+                };
+                this.canvas.style.cursor = 'move';
+                return;
+            }
+        }
+
+        // Check if we're clicking on the selected entrance
+        if (this.selectedEntranceIndex !== null) {
+            const entrance = this.state.annotations.entrances[this.selectedEntranceIndex];
+            if (entrance && this.isPointInEntrance(sensorCoords.x, sensorCoords.y, entrance)) {
+                this.isRightClickDragging = true;
+                this.isDragging = true;
+                this.dragOffset = {
+                    x: sensorCoords.x - entrance.x,
+                    y: sensorCoords.y - entrance.y
+                };
+                this.canvas.style.cursor = 'move';
+                return;
+            }
+        }
+
+        // Check if we're clicking on the selected edge
+        if (this.selectedEdgeIndex !== null) {
+            const edge = this.state.annotations.edges[this.selectedEdgeIndex];
+            if (edge && this.isPointInEdge(sensorCoords.x, sensorCoords.y, edge)) {
+                this.isRightClickDragging = true;
+                this.isDragging = true;
+                this.dragOffset = {
+                    x: sensorCoords.x - (edge.x1 + edge.x2) / 2,
+                    y: sensorCoords.y - (edge.y1 + edge.y2) / 2
+                };
+                this.canvas.style.cursor = 'move';
+                return;
+            }
         }
     }
 
@@ -732,6 +817,46 @@ export class DrawingManager {
             this.moveFurniture(sensorCoords);
         } else if (this.selectedZoneIndex !== null) {
             this.moveZone(sensorCoords);
+        } else if (this.selectedEdgeIndex !== null && this.isRightClickDragging) {
+            this.moveEdge(sensorCoords);
+        }
+    }
+
+    /**
+     * Move edge to new position
+     */
+    moveEdge(sensorCoords) {
+        const edge = this.state.annotations.edges[this.selectedEdgeIndex];
+        if (!edge) return;
+
+        const width = Math.abs(edge.x2 - edge.x1);
+        const height = Math.abs(edge.y2 - edge.y1);
+
+        const newCenterX = sensorCoords.x - this.dragOffset.x;
+        const newCenterY = sensorCoords.y - this.dragOffset.y;
+
+        // Calculate new bounds
+        const halfW = width / 2;
+        const halfH = height / 2;
+
+        // Clamp to sensor range
+        const newX1 = Math.max(-3000, Math.min(3000 - width, Math.round((newCenterX - halfW) / 100) * 100));
+        const newY1 = Math.max(0, Math.min(6000 - height, Math.round((newCenterY - halfH) / 100) * 100));
+
+        edge.x1 = newX1;
+        edge.y1 = newY1;
+        edge.x2 = newX1 + width;
+        edge.y2 = newY1 + height;
+
+        // Trigger redraw
+        this.radarCanvas.drawFrame(
+            [],
+            this.state.zones.zones,
+            this.state.annotations
+        );
+
+        if (this.callbacks.onEdgeUpdate) {
+            this.callbacks.onEdgeUpdate(this.selectedEdgeIndex, edge);
         }
     }
 
@@ -1002,9 +1127,23 @@ export class DrawingManager {
         const canvasCoords = this.getCanvasCoords(event);
         const sensorCoords = this.toSensorCoords(canvasCoords.x, canvasCoords.y);
 
+        // Handle right-click release (end drag)
+        if (event.button === 2 && this.isRightClickDragging) {
+            this.isRightClickDragging = false;
+            this.isDragging = false;
+            this.canvas.style.cursor = 'default';
+            // Trigger save for the moved item
+            if (this.selectedEdgeIndex !== null && this.callbacks.onEdgeUpdate) {
+                const edge = this.state.annotations.edges[this.selectedEdgeIndex];
+                this.callbacks.onEdgeUpdate(this.selectedEdgeIndex, edge);
+            }
+            return;
+        }
+
         switch (this.mode) {
             case 'select':
                 this.isDragging = false;
+                this.isRightClickDragging = false;
                 this.selectedHandle = null;
                 break;
             case 'draw-rectangle':

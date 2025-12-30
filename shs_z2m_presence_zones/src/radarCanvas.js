@@ -373,7 +373,7 @@ export class RadarCanvas {
      * Draw a furniture resize handle (small circle)
      */
     drawFurnitureHandle(x, y) {
-        const size = 5;
+        const size = 7;
         this.ctx.fillStyle = this.COLORS.handle;
         this.ctx.strokeStyle = this.COLORS.selection;
         this.ctx.lineWidth = 2;
@@ -910,12 +910,14 @@ export class RadarCanvas {
         this.ctx.lineWidth = isSelected ? 3 : 2;
         this.ctx.strokeRect(x1, y1, width, height);
 
-        // Label (upright) - show zone name and type on one line
+        // Label (upright) - centered inside the zone
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
         const zoneType = zone.zoneType === 'interference' ? 'Interf.' : 'Detect.';
-        this.drawUprightText(`Zone ${index + 1} (${zoneType})`, x1 + 10, y1 + 18, {
+        this.drawUprightText(`Zone ${index + 1} (${zoneType})`, centerX, centerY, {
             font: 'bold 12px sans-serif',
             color: color.border,
-            align: 'left'
+            align: 'center'
         });
     }
 
@@ -953,12 +955,14 @@ export class RadarCanvas {
         this.ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
         this.ctx.setLineDash([]);
 
-        // Label (upright) - show zone name and type on one line
+        // Label (upright) - centered inside the zone
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
         const zoneType = zone.zoneType === 'interference' ? 'Interf.' : 'Detect.';
-        this.drawUprightText(`Zone ${index + 1} (${zoneType})`, x1 + 10, y1 + 18, {
+        this.drawUprightText(`Zone ${index + 1} (${zoneType})`, centerX, centerY, {
             font: 'bold 12px sans-serif',
             color: color.border,
-            align: 'left'
+            align: 'center'
         });
 
         // Draw vertex points
@@ -1008,7 +1012,7 @@ export class RadarCanvas {
      * Draw a resize handle
      */
     drawHandle(x, y) {
-        const size = 6;
+        const size = 8;
         this.ctx.fillStyle = this.COLORS.handle;
         this.ctx.strokeStyle = this.COLORS.selection;
         this.ctx.lineWidth = 2;
@@ -1239,9 +1243,9 @@ export class RadarCanvas {
         handles.forEach(handle => {
             this.ctx.fillStyle = this.COLORS.handle;
             this.ctx.strokeStyle = this.COLORS.selection;
-            this.ctx.lineWidth = 1;
+            this.ctx.lineWidth = 2;
             this.ctx.beginPath();
-            this.ctx.rect(handle.x - 4, handle.y - 4, 8, 8);
+            this.ctx.rect(handle.x - 6, handle.y - 6, 12, 12);
             this.ctx.fill();
             this.ctx.stroke();
         });
