@@ -122,9 +122,258 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     padding: var(--spacing-lg);
     overflow: auto;
+    gap: var(--spacing-md);
+}
+
+/* ============================================================================
+ * Drawing Toolbar
+ * ============================================================================ */
+
+.drawing-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    flex-shrink: 0;
+}
+
+.toolbar-group {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.toolbar-divider {
+    width: 1px;
+    height: 28px;
+    background-color: var(--border-color);
+    margin: 0 var(--spacing-xs);
+}
+
+.tool-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tool-btn:hover {
+    background-color: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.tool-btn.active {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #ffffff;
+}
+
+.tool-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.tool-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tool-btn:disabled:hover {
+    background-color: transparent;
+    border-color: transparent;
+}
+
+.tool-btn.highlight {
+    animation: tool-highlight 0.5s ease-in-out 3;
+}
+
+@keyframes tool-highlight {
+    0%, 100% {
+        background-color: transparent;
+        border-color: transparent;
+    }
+    50% {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+        color: #ffffff;
+    }
+}
+
+/* ============================================================================
+ * Shape Floating Actions
+ * ============================================================================ */
+
+.shape-actions {
+    position: absolute;
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background-color: rgba(22, 27, 34, 0.95);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+    pointer-events: auto;
+}
+
+.shape-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.shape-action-btn:hover {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+}
+
+.shape-action-btn.delete:hover {
+    background-color: rgba(248, 81, 73, 0.2);
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+}
+
+/* ============================================================================
+ * Placement Done Button
+ * ============================================================================ */
+
+.placement-done {
+    position: absolute;
+    bottom: var(--spacing-lg);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    z-index: 100;
+}
+
+.done-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background-color: var(--color-success);
+    border: none;
+    border-radius: var(--radius-md);
+    color: #ffffff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: all 0.15s ease;
+}
+
+.done-btn:hover {
+    background-color: #2ea043;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
+}
+
+.done-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background-color: rgba(22, 27, 34, 0.8);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+
+/* ============================================================================
+ * Section Header with Auto-Save
+ * ============================================================================ */
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.section-header h2 {
+    margin-bottom: 0;
+}
+
+.auto-save-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: var(--color-success);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.auto-save-indicator.visible {
+    opacity: 1;
+}
+
+.auto-save-indicator.saving {
+    color: var(--color-warning);
+}
+
+/* ============================================================================
+ * Sensor Status Bar
+ * ============================================================================ */
+
+.sensor-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    max-width: 600px;
+    width: 100%;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.status-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.status-value {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.status-divider {
+    width: 1px;
+    height: 16px;
+    background-color: var(--border-color);
 }
 
 .canvas-container {
@@ -361,62 +610,130 @@ body {
     flex: 1;
 }
 
+.btn-small {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+}
+
+/* Input with inline button */
+.input-with-button {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: stretch;
+}
+
+.input-with-button input {
+    flex: 1;
+    min-width: 0;
+}
+
+.input-with-button .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
 /* ============================================================================
  * Zone Controls
  * ============================================================================ */
 
-.zone-tabs {
+/* ============================================================================
+ * Zone Cards
+ * ============================================================================ */
+
+.zone-cards {
     display: flex;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-md);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.zone-tab {
-    flex: 1;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background-color: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.zone-tab:hover {
-    color: var(--text-primary);
-}
-
-.zone-tab.active {
-    color: var(--color-primary);
-    border-bottom-color: var(--color-primary);
-}
-
-.zone-editor {
-    animation: fadeIn 0.2s;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.coordinate-inputs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    flex-direction: column;
     gap: var(--spacing-sm);
-    margin: var(--spacing-md) 0;
+    margin-bottom: var(--spacing-md);
 }
 
-.zone-status {
+.zone-card {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.zone-card:hover {
+    border-color: var(--text-muted);
+}
+
+.zone-card.selected {
+    border-color: var(--color-primary);
+    background-color: rgba(88, 166, 255, 0.1);
+}
+
+.zone-card.enabled {
+    border-left: 3px solid var(--color-success);
+}
+
+.zone-card-header {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm) 0;
-    margin-bottom: var(--spacing-md);
+}
+
+.zone-card-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.zone-card-color.zone1 { background-color: var(--color-primary); }
+.zone-card-color.zone2 { background-color: var(--color-warning); }
+.zone-card-color.zone3 { background-color: var(--color-danger); }
+
+.zone-card-title {
+    flex: 1;
+    font-weight: 500;
     font-size: 0.875rem;
+}
+
+.zone-card-info {
+    margin-top: var(--spacing-xs);
+    padding-left: calc(12px + var(--spacing-sm));
+}
+
+.zone-info-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.zone-card-type {
+    margin-top: var(--spacing-xs);
+    padding-left: calc(12px + var(--spacing-sm));
+}
+
+.zone-type-select {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.zone-type-select:hover {
+    border-color: var(--text-muted);
+    color: var(--text-primary);
+}
+
+.zone-type-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.zone-card.enabled .zone-type-select {
+    color: var(--text-primary);
+    background-color: var(--bg-secondary);
 }
 
 .status-badge {

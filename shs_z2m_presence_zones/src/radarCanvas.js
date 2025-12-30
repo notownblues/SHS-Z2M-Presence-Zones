@@ -29,8 +29,22 @@ export class RadarCanvas {
             zone2: 'rgba(210, 153, 34, 0.2)',
             zone2Border: '#d29922',
             zone3: 'rgba(248, 81, 73, 0.2)',
-            zone3Border: '#f85149'
+            zone3Border: '#f85149',
+            preview: 'rgba(255, 255, 255, 0.3)',
+            previewBorder: '#ffffff',
+            selection: '#58a6ff',
+            handle: '#ffffff',
+            furniture: 'rgba(139, 148, 158, 0.5)',
+            furnitureBorder: '#8b949e',
+            entrance: '#d29922'
         };
+
+        // Drawing state
+        this.drawingPreview = null;
+        this.selectedZoneIndex = null;
+        this.selectedFurnitureIndex = null;
+        this.selectedEntranceIndex = null;
+        this.mapRotation = 0; // 0, 90, 180, 270
 
         // Initialize
         this.resize();
@@ -82,38 +96,686 @@ export class RadarCanvas {
     }
 
     /**
+     * Set the drawing preview state
+     */
+    setDrawingPreview(preview) {
+        this.drawingPreview = preview;
+    }
+
+    /**
+     * Set the selected zone index
+     */
+    setSelectedZone(index) {
+        this.selectedZoneIndex = index;
+    }
+
+    /**
+     * Set the selected furniture index
+     */
+    setSelectedFurniture(index) {
+        this.selectedFurnitureIndex = index;
+    }
+
+    /**
+     * Set map rotation (0, 90, 180, 270 degrees)
+     */
+    setMapRotation(degrees) {
+        this.mapRotation = degrees % 360;
+    }
+
+    /**
+     * Transform sensor coordinates to room/display coordinates based on map rotation.
+     * This accounts for the physical orientation of the sensor in the room.
+     *
+     * The transformation ensures that when drawn through toCanvasX/Y, the result
+     * appears at the correct visual position for the given rotation.
+     *
+     * When sensor is at bottom (0°): no transformation needed
+     * When sensor is at top (180°): flip X, invert Y (sensor at top looking down)
+     * When sensor is at left (90°): swap X/Y with adjustments
+     * When sensor is at right (270°): swap X/Y with different adjustments
+     */
+    transformSensorToRoom(sensorX, sensorY) {
+        const Y_MAX = this.SENSOR_RANGE.Y_MAX; // 6000mm
+
+        switch (this.mapRotation) {
+            case 0:
+                // Sensor at bottom looking up - no change
+                return { x: sensorX, y: sensorY };
+            case 90:
+                // Sensor on left looking right
+                // sensor +X becomes visual down, sensor +Y becomes visual right
+                return { x: sensorY - 3000, y: -sensorX + 3000 };
+            case 180:
+                // Sensor on top looking down
+                // DO NOT flip X - keep sensor X as room X
+                // sensor +Y should go DOWN from top (invert Y so Y=0 is at top)
+                return { x: sensorX, y: Y_MAX - sensorY };
+            case 270:
+                // Sensor on right looking left
+                return { x: -(sensorY - 3000), y: sensorX + 3000 };
+            default:
+                return { x: sensorX, y: sensorY };
+        }
+    }
+
+    /**
+     * Transform room/display coordinates back to sensor coordinates.
+     * This is the inverse of transformSensorToRoom.
+     */
+    transformRoomToSensor(roomX, roomY) {
+        const Y_MAX = this.SENSOR_RANGE.Y_MAX; // 6000mm
+
+        switch (this.mapRotation) {
+            case 0:
+                return { x: roomX, y: roomY };
+            case 90:
+                // Inverse of 90° transform
+                return { x: -(roomY - 3000), y: roomX + 3000 };
+            case 180:
+                // Inverse of 180° transform: x = roomX (no flip), y = Y_MAX - roomY
+                return { x: roomX, y: Y_MAX - roomY };
+            case 270:
+                // Inverse of 270° transform
+                return { x: roomY - 3000, y: -(roomX - 3000) };
+            default:
+                return { x: roomX, y: roomY };
+        }
+    }
+
+    /**
+     * Draw text that stays upright regardless of map rotation
+     */
+    drawUprightText(text, x, y, options = {}) {
+        const { align = 'center', baseline = 'middle', font = '11px monospace', color = this.COLORS.gridLabel } = options;
+
+        this.ctx.save();
+        this.ctx.translate(x, y);
+
+        // Counter-rotate to keep text upright
+        if (this.mapRotation !== 0) {
+            this.ctx.rotate(-this.mapRotation * Math.PI / 180);
+        }
+
+        this.ctx.font = font;
+        this.ctx.fillStyle = color;
+        this.ctx.textAlign = align;
+        this.ctx.textBaseline = baseline;
+        this.ctx.fillText(text, 0, 0);
+
+        this.ctx.restore();
+    }
+
+    /**
+     * Set the selected entrance index
+     */
+    setSelectedEntrance(index) {
+        this.selectedEntranceIndex = index;
+    }
+
+    /**
      * Main draw function - called every frame
      */
-    drawFrame(targets = [], zones = []) {
+    drawFrame(targets = [], zones = [], annotations = null) {
         // Clear canvas
         this.ctx.fillStyle = this.COLORS.background;
         this.ctx.fillRect(0, 0, this.width, this.height);
 
+        // Apply map rotation for all elements (grid, zones, targets, furniture)
+        this.ctx.save();
+        if (this.mapRotation !== 0) {
+            this.ctx.translate(this.width / 2, this.height / 2);
+            this.ctx.rotate(this.mapRotation * Math.PI / 180);
+            this.ctx.translate(-this.width / 2, -this.height / 2);
+        }
+
         // Draw grid
         this.drawGrid();
 
-        // Draw zones
+        // Draw zones in sensor coordinates (canvas rotation handles visual display)
         zones.forEach((zone, index) => {
             if (zone.enabled) {
-                this.drawZone(zone, index);
+                this.drawZone(zone, index, index === this.selectedZoneIndex);
             }
         });
 
-        // Draw sensor origin
+        // Draw selection handles for selected zone
+        if (this.selectedZoneIndex !== null && zones[this.selectedZoneIndex]?.enabled) {
+            this.drawSelectionHandles(zones[this.selectedZoneIndex]);
+        }
+
+        // Draw drawing preview
+        if (this.drawingPreview) {
+            this.drawPreview(this.drawingPreview);
+        }
+
+        // Draw annotations (furniture, entrances) if provided
+        if (annotations) {
+            this.drawAnnotations(annotations);
+        }
+
+        // Draw sensor origin (inside rotated context so it moves with rotation)
         this.drawSensorOrigin();
 
-        // Draw targets
+        // Restore context after rotation
+        this.ctx.restore();
+
+        // Draw targets OUTSIDE the rotated context using explicit transformation
+        // This gives more predictable and debuggable results
         targets.forEach((target, index) => {
             this.drawTarget(target, index);
         });
     }
 
+    /**
+     * Draw annotations (furniture and entrances)
+     */
+    drawAnnotations(annotations) {
+        // Draw furniture
+        if (annotations.furniture && annotations.furniture.length > 0) {
+            annotations.furniture.forEach((furniture, index) => {
+                const isSelected = index === this.selectedFurnitureIndex;
+                this.drawFurniture(furniture, isSelected);
+            });
+        }
+
+        // Draw entrances
+        if (annotations.entrances && annotations.entrances.length > 0) {
+            annotations.entrances.forEach((entrance, index) => {
+                const isSelected = index === this.selectedEntranceIndex;
+                this.drawEntrance(entrance, isSelected);
+            });
+        }
+    }
+
+    /**
+     * Draw a furniture item
+     */
+    drawFurniture(furniture, isSelected = false) {
+        const x = this.toCanvasX(furniture.x);
+        const y = this.toCanvasY(furniture.y);
+
+        this.ctx.save();
+        this.ctx.translate(x, y);
+        this.ctx.rotate((furniture.rotation || 0) * Math.PI / 180);
+
+        const halfW = (furniture.width * this.scaleX) / 2;
+        const halfH = (furniture.height * this.scaleY) / 2;
+
+        // Draw selection outline if selected
+        if (isSelected) {
+            this.ctx.strokeStyle = this.COLORS.selection;
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([4, 4]);
+            this.ctx.strokeRect(-halfW - 4, -halfH - 4, halfW * 2 + 8, halfH * 2 + 8);
+            this.ctx.setLineDash([]);
+        }
+
+        // Draw based on furniture type with simpler, cleaner icons
+        switch (furniture.type) {
+            case 'table':
+                this.drawSimpleTable(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'chair':
+                this.drawSimpleChair(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'bed':
+                this.drawSimpleBed(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'sofa':
+                this.drawSimpleSofa(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'plant':
+                this.drawSimplePlant(0, 0, Math.min(halfW, halfH));
+                break;
+            case 'cabinet':
+                this.drawSimpleCabinet(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'lamp':
+                this.drawSimpleLamp(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            default:
+                // Generic rectangle
+                this.ctx.fillStyle = 'rgba(100, 100, 110, 0.6)';
+                this.roundRect(-halfW, -halfH, halfW * 2, halfH * 2, 4);
+                this.ctx.fill();
+                this.ctx.strokeStyle = 'rgba(140, 140, 150, 0.8)';
+                this.ctx.lineWidth = 1.5;
+                this.roundRect(-halfW, -halfH, halfW * 2, halfH * 2, 4);
+                this.ctx.stroke();
+        }
+
+        // Draw resize handles if selected
+        if (isSelected) {
+            this.drawFurnitureHandle(-halfW, -halfH);
+            this.drawFurnitureHandle(halfW, -halfH);
+            this.drawFurnitureHandle(-halfW, halfH);
+            this.drawFurnitureHandle(halfW, halfH);
+        }
+
+        this.ctx.restore();
+    }
+
+    /**
+     * Draw a furniture resize handle (small circle)
+     */
+    drawFurnitureHandle(x, y) {
+        const size = 5;
+        this.ctx.fillStyle = this.COLORS.handle;
+        this.ctx.strokeStyle = this.COLORS.selection;
+        this.ctx.lineWidth = 2;
+
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, size, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+    }
+
+    // Polished top-down furniture icons
+    drawSimpleTable(x, y, w, h) {
+        const r = 4;
+
+        // Table frame (dark wood border)
+        this.ctx.fillStyle = '#6B4423';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Table surface (lighter wood)
+        this.ctx.fillStyle = '#D4A574';
+        this.roundRect(x + 3, y + 3, w - 6, h - 6, r - 1);
+        this.ctx.fill();
+
+        // Wood grain lines (horizontal)
+        this.ctx.strokeStyle = 'rgba(139, 90, 43, 0.3)';
+        this.ctx.lineWidth = 1;
+        const grainSpacing = h / 5;
+        for (let i = 1; i < 5; i++) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x + 8, y + grainSpacing * i);
+            this.ctx.lineTo(x + w - 8, y + grainSpacing * i);
+            this.ctx.stroke();
+        }
+
+        // Center decoration (optional placemats/items indicator)
+        this.ctx.fillStyle = 'rgba(107, 68, 35, 0.2)';
+        const centerW = w * 0.4;
+        const centerH = h * 0.25;
+        this.roundRect(x + (w - centerW) / 2, y + (h - centerH) / 2, centerW, centerH, 2);
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        this.ctx.lineWidth = 2;
+        this.roundRect(x, y, w, h, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleChair(x, y, w, h) {
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        const r = 4;
+
+        // Main chair color - warm coral/orange
+        const chairColor = '#E07850';
+        const chairDark = '#C05A38';
+        const chairLight = '#F09070';
+
+        // Back rest (top curved part)
+        this.ctx.fillStyle = chairDark;
+        this.roundRect(x + w * 0.1, y, w * 0.8, h * 0.35, r);
+        this.ctx.fill();
+
+        // Main seat body
+        this.ctx.fillStyle = chairColor;
+        this.roundRect(x, y + h * 0.25, w, h * 0.6, r);
+        this.ctx.fill();
+
+        // Seat cushion (lighter center)
+        this.ctx.fillStyle = chairLight;
+        this.roundRect(x + w * 0.15, y + h * 0.35, w * 0.7, h * 0.4, r - 1);
+        this.ctx.fill();
+
+        // Armrests
+        this.ctx.fillStyle = chairDark;
+        this.roundRect(x - w * 0.05, y + h * 0.2, w * 0.18, h * 0.55, r);
+        this.ctx.fill();
+        this.roundRect(x + w * 0.87, y + h * 0.2, w * 0.18, h * 0.55, r);
+        this.ctx.fill();
+
+        // Subtle shadow/border
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+        this.ctx.lineWidth = 1.5;
+        this.roundRect(x - w * 0.05, y, w * 1.1, h * 0.85, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleBed(x, y, w, h) {
+        const r = 4;
+
+        // Bed frame (dark wood)
+        this.ctx.fillStyle = '#5D4037';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Mattress (light gray/white)
+        this.ctx.fillStyle = '#E8E8E8';
+        this.roundRect(x + w * 0.08, y + h * 0.08, w * 0.84, h * 0.84, r - 1);
+        this.ctx.fill();
+
+        // Headboard (darker, at top)
+        this.ctx.fillStyle = '#4A3228';
+        this.roundRect(x, y, w * 0.12, h, r);
+        this.ctx.fill();
+
+        // Pillows (cream colored)
+        this.ctx.fillStyle = '#F5F0E6';
+        // Top pillow
+        this.roundRect(x + w * 0.15, y + h * 0.12, w * 0.25, h * 0.32, 3);
+        this.ctx.fill();
+        // Bottom pillow
+        this.roundRect(x + w * 0.15, y + h * 0.56, w * 0.25, h * 0.32, 3);
+        this.ctx.fill();
+
+        // Blanket fold line
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + w * 0.45, y + h * 0.1);
+        this.ctx.lineTo(x + w * 0.45, y + h * 0.9);
+        this.ctx.stroke();
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        this.ctx.lineWidth = 1.5;
+        this.roundRect(x, y, w, h, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleSofa(x, y, w, h) {
+        const r = 5;
+
+        // Sofa color - blue like in the reference
+        const sofaColor = '#4A6FA5';
+        const sofaDark = '#3A5A8A';
+        const sofaLight = '#6090C0';
+
+        // Main body shadow/base
+        this.ctx.fillStyle = sofaDark;
+        this.roundRect(x, y, w, h * 0.9, r);
+        this.ctx.fill();
+
+        // Back rest
+        this.ctx.fillStyle = sofaDark;
+        this.roundRect(x + w * 0.1, y, w * 0.8, h * 0.3, r);
+        this.ctx.fill();
+
+        // Main seat
+        this.ctx.fillStyle = sofaColor;
+        this.roundRect(x + w * 0.08, y + h * 0.2, w * 0.84, h * 0.6, r);
+        this.ctx.fill();
+
+        // Left cushion
+        this.ctx.fillStyle = sofaLight;
+        this.roundRect(x + w * 0.12, y + h * 0.28, w * 0.35, h * 0.45, r - 1);
+        this.ctx.fill();
+
+        // Right cushion
+        this.ctx.fillStyle = sofaLight;
+        this.roundRect(x + w * 0.53, y + h * 0.28, w * 0.35, h * 0.45, r - 1);
+        this.ctx.fill();
+
+        // Armrests
+        this.ctx.fillStyle = sofaDark;
+        this.roundRect(x - w * 0.02, y + h * 0.1, w * 0.14, h * 0.7, r);
+        this.ctx.fill();
+        this.roundRect(x + w * 0.88, y + h * 0.1, w * 0.14, h * 0.7, r);
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+        this.ctx.lineWidth = 1.5;
+        this.roundRect(x - w * 0.02, y, w * 1.04, h * 0.9, r);
+        this.ctx.stroke();
+    }
+
+    drawSimplePlant(x, y, radius) {
+        // Pot (terracotta brown)
+        const potH = radius * 0.6;
+        const potTopW = radius * 0.5;
+        const potBotW = radius * 0.35;
+
+        this.ctx.fillStyle = '#8B5A2B';
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - potTopW, y);
+        this.ctx.lineTo(x + potTopW, y);
+        this.ctx.lineTo(x + potBotW, y + potH);
+        this.ctx.lineTo(x - potBotW, y + potH);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // Pot rim
+        this.ctx.fillStyle = '#A0522D';
+        this.ctx.beginPath();
+        this.ctx.ellipse(x, y, potTopW, potTopW * 0.25, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Foliage - multiple overlapping circles for tree/bush look
+        const leafColor = '#4CAF50';
+        const leafDark = '#388E3C';
+
+        // Bottom leaves
+        this.ctx.fillStyle = leafDark;
+        this.ctx.beginPath();
+        this.ctx.arc(x - radius * 0.3, y - radius * 0.2, radius * 0.4, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x + radius * 0.3, y - radius * 0.2, radius * 0.4, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Top leaves
+        this.ctx.fillStyle = leafColor;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y - radius * 0.5, radius * 0.5, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x - radius * 0.2, y - radius * 0.3, radius * 0.35, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x + radius * 0.2, y - radius * 0.3, radius * 0.35, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+
+    drawSimpleCabinet(x, y, w, h) {
+        const r = 3;
+
+        // Cabinet body (dark wood)
+        this.ctx.fillStyle = '#5D4037';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Cabinet top surface (lighter)
+        this.ctx.fillStyle = '#8D6E63';
+        this.roundRect(x + w * 0.05, y + h * 0.05, w * 0.9, h * 0.9, r - 1);
+        this.ctx.fill();
+
+        // Drawer/door lines
+        this.ctx.strokeStyle = '#4A3228';
+        this.ctx.lineWidth = 2;
+
+        // Horizontal divider
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + w * 0.1, y + h * 0.5);
+        this.ctx.lineTo(x + w * 0.9, y + h * 0.5);
+        this.ctx.stroke();
+
+        // Vertical divider (for doors)
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + w * 0.5, y + h * 0.55);
+        this.ctx.lineTo(x + w * 0.5, y + h * 0.95);
+        this.ctx.stroke();
+
+        // Door handles
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.35, y + h * 0.75, w * 0.04, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.65, y + h * 0.75, w * 0.04, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Drawer handle
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.5, y + h * 0.3, w * 0.04, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        this.ctx.lineWidth = 1.5;
+        this.roundRect(x, y, w, h, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleLamp(x, y, w, h) {
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        const radius = Math.min(w, h) / 2;
+
+        // Outer glow (subtle)
+        const gradient = this.ctx.createRadialGradient(cx, cy, radius * 0.3, cx, cy, radius);
+        gradient.addColorStop(0, 'rgba(255, 235, 150, 0.4)');
+        gradient.addColorStop(0.7, 'rgba(255, 235, 150, 0.15)');
+        gradient.addColorStop(1, 'rgba(255, 235, 150, 0)');
+        this.ctx.fillStyle = gradient;
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Lamp shade (cream/yellow)
+        this.ctx.fillStyle = '#F0E68C';
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, radius * 0.6, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Inner shade detail
+        this.ctx.fillStyle = '#FFFACD';
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, radius * 0.4, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Center (bulb/base)
+        this.ctx.fillStyle = '#DAA520';
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, radius * 0.15, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(180, 150, 50, 0.5)';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, radius * 0.6, 0, Math.PI * 2);
+        this.ctx.stroke();
+    }
+
+    // Keep old functions for backwards compatibility (they're just aliases now)
+    drawTableIcon(x, y, w, h) { this.drawSimpleTable(x, y, w, h); }
+    drawChairIcon(x, y, w, h) { this.drawSimpleChair(x, y, w, h); }
+    drawBedIcon(x, y, w, h) { this.drawSimpleBed(x, y, w, h); }
+    drawPlantIcon(x, y, r) { this.drawSimplePlant(x, y, r); }
+
+    /**
+     * Helper to draw rounded rectangles
+     */
+    roundRect(x, y, w, h, r) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + r, y);
+        this.ctx.lineTo(x + w - r, y);
+        this.ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        this.ctx.lineTo(x + w, y + h - r);
+        this.ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        this.ctx.lineTo(x + r, y + h);
+        this.ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        this.ctx.lineTo(x, y + r);
+        this.ctx.quadraticCurveTo(x, y, x + r, y);
+        this.ctx.closePath();
+    }
+
+    /**
+     * Draw an entrance marker (door swing arc style)
+     */
+    drawEntrance(entrance, isSelected = false) {
+        const x = this.toCanvasX(entrance.x);
+        const y = this.toCanvasY(entrance.y);
+        const doorLength = 35; // Length of the door
+        const direction = (entrance.direction || 0) * Math.PI / 180;
+
+        this.ctx.save();
+        this.ctx.translate(x, y);
+        this.ctx.rotate(direction);
+
+        // Selection highlight
+        if (isSelected) {
+            this.ctx.strokeStyle = this.COLORS.selection;
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([4, 4]);
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, doorLength + 10, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+        }
+
+        // Door swing arc (dashed quarter circle)
+        this.ctx.strokeStyle = '#2C3E50';
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([4, 4]);
+        this.ctx.beginPath();
+        // Arc from 0 to 90 degrees (quarter circle)
+        this.ctx.arc(0, 0, doorLength, -Math.PI / 2, 0);
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+
+        // Door (solid line from hinge point)
+        this.ctx.strokeStyle = '#5D6D7E';
+        this.ctx.lineWidth = 3;
+        this.ctx.lineCap = 'round';
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, 0);
+        this.ctx.lineTo(doorLength, 0);
+        this.ctx.stroke();
+
+        // Wall segment (perpendicular to door at hinge)
+        this.ctx.strokeStyle = '#7F8C8D';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, 0);
+        this.ctx.lineTo(0, -doorLength);
+        this.ctx.stroke();
+
+        // Hinge point (small filled circle)
+        this.ctx.fillStyle = '#5D6D7E';
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Door handle (small circle on door)
+        this.ctx.fillStyle = '#95A5A6';
+        this.ctx.beginPath();
+        this.ctx.arc(doorLength * 0.75, 0, 3, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.restore();
+
+        // Label (upright)
+        if (entrance.label) {
+            this.drawUprightText(entrance.label, x, y + doorLength + 15, {
+                font: '10px sans-serif',
+                color: '#5D6D7E'
+            });
+        }
+    }
+
     drawGrid() {
         this.ctx.strokeStyle = this.COLORS.grid;
         this.ctx.lineWidth = 1;
-        this.ctx.font = '11px monospace';
-        this.ctx.fillStyle = this.COLORS.gridLabel;
-        this.ctx.textAlign = 'center';
 
         // Vertical lines (X axis) - every 1m
         for (let x = -3000; x <= 3000; x += 1000) {
@@ -124,9 +786,9 @@ export class RadarCanvas {
             this.ctx.lineTo(canvasX, this.height);
             this.ctx.stroke();
 
-            // Label
+            // Label (upright)
             if (x !== 0) {
-                this.ctx.fillText(`${x / 1000}m`, canvasX, this.height - 5);
+                this.drawUprightText(`${x / 1000}m`, canvasX, this.height - 10, { baseline: 'bottom' });
             }
         }
 
@@ -139,9 +801,9 @@ export class RadarCanvas {
             this.ctx.lineTo(this.width, canvasY);
             this.ctx.stroke();
 
-            // Label
+            // Label (upright)
             if (y !== 0) {
-                this.ctx.fillText(`${y / 1000}m`, 25, canvasY + 4);
+                this.drawUprightText(`${y / 1000}m`, 25, canvasY, { align: 'left' });
             }
         }
 
@@ -181,22 +843,26 @@ export class RadarCanvas {
         this.ctx.stroke();
         this.ctx.setLineDash([]);
 
-        // Label
-        this.ctx.fillStyle = this.COLORS.sensor;
-        this.ctx.font = '12px sans-serif';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('SHS01', x, y - 20);
+        // Label (upright)
+        this.drawUprightText('SHS01', x, y - 20, {
+            font: '12px sans-serif',
+            color: this.COLORS.sensor
+        });
+
+        // Debug: Show L/R indicators to verify rotation
+        // These show the SENSOR's left/right (from sensor's perspective)
+        // After rotation, sensor's right should appear on room's left when sensor is at top
+        this.drawUprightText('S-LEFT', this.toCanvasX(-2500), this.toCanvasY(3000), {
+            font: '10px sans-serif',
+            color: '#ff6b6b'
+        });
+        this.drawUprightText('S-RIGHT', this.toCanvasX(2500), this.toCanvasY(3000), {
+            font: '10px sans-serif',
+            color: '#4ecdc4'
+        });
     }
 
-    drawZone(zone, index) {
-        const x1 = this.toCanvasX(zone.x1);
-        const y1 = this.toCanvasY(zone.y1);
-        const x2 = this.toCanvasX(zone.x2);
-        const y2 = this.toCanvasY(zone.y2);
-
-        const width = x2 - x1;
-        const height = y2 - y1;
-
+    drawZone(zone, index, isSelected = false) {
         // Zone colors
         const colors = [
             { fill: this.COLORS.zone1, border: this.COLORS.zone1Border },
@@ -205,28 +871,247 @@ export class RadarCanvas {
         ];
         const color = colors[index] || colors[0];
 
+        // Check if polygon zone
+        if (zone.shapeType === 'polygon' && zone.vertices && zone.vertices.length >= 3) {
+            this.drawPolygonZone(zone, index, color, isSelected);
+        } else {
+            this.drawRectangleZone(zone, index, color, isSelected);
+        }
+    }
+
+    drawRectangleZone(zone, index, color, isSelected) {
+        const x1 = this.toCanvasX(zone.x1);
+        const y1 = this.toCanvasY(zone.y1);
+        const x2 = this.toCanvasX(zone.x2);
+        const y2 = this.toCanvasY(zone.y2);
+
+        const width = x2 - x1;
+        const height = y2 - y1;
+
         // Fill
         this.ctx.fillStyle = color.fill;
         this.ctx.fillRect(x1, y1, width, height);
 
-        // Border
-        this.ctx.strokeStyle = color.border;
-        this.ctx.lineWidth = 2;
+        // Border (thicker if selected)
+        this.ctx.strokeStyle = isSelected ? this.COLORS.selection : color.border;
+        this.ctx.lineWidth = isSelected ? 3 : 2;
         this.ctx.strokeRect(x1, y1, width, height);
 
-        // Label
+        // Label (upright) - show zone name and type on one line
+        const zoneType = zone.zoneType === 'interference' ? 'Interf.' : 'Detect.';
+        this.drawUprightText(`Zone ${index + 1} (${zoneType})`, x1 + 10, y1 + 18, {
+            font: 'bold 12px sans-serif',
+            color: color.border,
+            align: 'left'
+        });
+    }
+
+    drawPolygonZone(zone, index, color, isSelected) {
+        const vertices = zone.vertices;
+        if (!vertices || vertices.length < 3) return;
+
+        // Draw polygon fill
+        this.ctx.beginPath();
+        const first = vertices[0];
+        this.ctx.moveTo(this.toCanvasX(first.x), this.toCanvasY(first.y));
+
+        for (let i = 1; i < vertices.length; i++) {
+            this.ctx.lineTo(this.toCanvasX(vertices[i].x), this.toCanvasY(vertices[i].y));
+        }
+        this.ctx.closePath();
+
+        this.ctx.fillStyle = color.fill;
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = isSelected ? this.COLORS.selection : color.border;
+        this.ctx.lineWidth = isSelected ? 3 : 2;
+        this.ctx.stroke();
+
+        // Draw bounding box outline (dashed) to show what sensor receives
+        const x1 = this.toCanvasX(zone.x1);
+        const y1 = this.toCanvasY(zone.y1);
+        const x2 = this.toCanvasX(zone.x2);
+        const y2 = this.toCanvasY(zone.y2);
+
+        this.ctx.setLineDash([4, 4]);
+        this.ctx.strokeStyle = color.border;
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        this.ctx.setLineDash([]);
+
+        // Label (upright) - show zone name and type on one line
+        const zoneType = zone.zoneType === 'interference' ? 'Interf.' : 'Detect.';
+        this.drawUprightText(`Zone ${index + 1} (${zoneType})`, x1 + 10, y1 + 18, {
+            font: 'bold 12px sans-serif',
+            color: color.border,
+            align: 'left'
+        });
+
+        // Draw vertex points
         this.ctx.fillStyle = color.border;
-        this.ctx.font = 'bold 14px sans-serif';
-        this.ctx.textAlign = 'left';
-        this.ctx.fillText(`Zone ${index + 1}`, x1 + 10, y1 + 20);
+        vertices.forEach(v => {
+            this.ctx.beginPath();
+            this.ctx.arc(this.toCanvasX(v.x), this.toCanvasY(v.y), 4, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+    }
+
+    /**
+     * Draw selection handles for a zone
+     */
+    drawSelectionHandles(zone) {
+        if (zone.shapeType === 'polygon') {
+            // For polygons, draw handles at each vertex
+            if (zone.vertices) {
+                zone.vertices.forEach(v => {
+                    this.drawHandle(this.toCanvasX(v.x), this.toCanvasY(v.y));
+                });
+            }
+        } else {
+            // For rectangles, draw 8 handles (corners + midpoints)
+            const x1 = this.toCanvasX(zone.x1);
+            const y1 = this.toCanvasY(zone.y1);
+            const x2 = this.toCanvasX(zone.x2);
+            const y2 = this.toCanvasY(zone.y2);
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            // Corners
+            this.drawHandle(x1, y1);
+            this.drawHandle(x2, y1);
+            this.drawHandle(x1, y2);
+            this.drawHandle(x2, y2);
+
+            // Midpoints
+            this.drawHandle(midX, y1);
+            this.drawHandle(midX, y2);
+            this.drawHandle(x1, midY);
+            this.drawHandle(x2, midY);
+        }
+    }
+
+    /**
+     * Draw a resize handle
+     */
+    drawHandle(x, y) {
+        const size = 6;
+        this.ctx.fillStyle = this.COLORS.handle;
+        this.ctx.strokeStyle = this.COLORS.selection;
+        this.ctx.lineWidth = 2;
+
+        this.ctx.fillRect(x - size, y - size, size * 2, size * 2);
+        this.ctx.strokeRect(x - size, y - size, size * 2, size * 2);
+    }
+
+    /**
+     * Draw drawing preview (rectangle or polygon being drawn)
+     */
+    drawPreview(preview) {
+        if (preview.type === 'rectangle' && preview.rect) {
+            this.drawRectanglePreview(preview.rect);
+        } else if (preview.type === 'polygon' && preview.vertices) {
+            this.drawPolygonPreview(preview.vertices);
+        }
+    }
+
+    /**
+     * Draw rectangle preview while drawing
+     */
+    drawRectanglePreview(rect) {
+        const x1 = this.toCanvasX(rect.x1);
+        const y1 = this.toCanvasY(rect.y1);
+        const x2 = this.toCanvasX(rect.x2);
+        const y2 = this.toCanvasY(rect.y2);
+
+        // Fill
+        this.ctx.fillStyle = this.COLORS.preview;
+        this.ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+
+        // Border (dashed)
+        this.ctx.setLineDash([6, 4]);
+        this.ctx.strokeStyle = this.COLORS.previewBorder;
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        this.ctx.setLineDash([]);
+
+        // Dimensions label (upright)
+        const width = Math.round(Math.abs(rect.x2 - rect.x1));
+        const height = Math.round(Math.abs(rect.y2 - rect.y1));
+        this.drawUprightText(`${width}mm × ${height}mm`, (x1 + x2) / 2, Math.min(y1, y2) - 10, {
+            font: '12px monospace',
+            color: this.COLORS.previewBorder
+        });
+    }
+
+    /**
+     * Draw polygon preview while drawing
+     */
+    drawPolygonPreview(vertices) {
+        if (vertices.length === 0) return;
+
+        this.ctx.beginPath();
+        const first = vertices[0];
+        this.ctx.moveTo(this.toCanvasX(first.x), this.toCanvasY(first.y));
+
+        for (let i = 1; i < vertices.length; i++) {
+            this.ctx.lineTo(this.toCanvasX(vertices[i].x), this.toCanvasY(vertices[i].y));
+        }
+
+        // If more than 2 vertices, close the polygon for preview
+        if (vertices.length > 2) {
+            this.ctx.closePath();
+            this.ctx.fillStyle = this.COLORS.preview;
+            this.ctx.fill();
+        }
+
+        // Draw lines
+        this.ctx.setLineDash([6, 4]);
+        this.ctx.strokeStyle = this.COLORS.previewBorder;
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+
+        // Draw vertex points
+        this.ctx.fillStyle = this.COLORS.previewBorder;
+        vertices.forEach((v, i) => {
+            this.ctx.beginPath();
+            this.ctx.arc(this.toCanvasX(v.x), this.toCanvasY(v.y), i === 0 ? 6 : 4, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+
+        // Label for first vertex (click to close) - upright
+        if (vertices.length >= 3) {
+            this.drawUprightText('Click to close', this.toCanvasX(first.x), this.toCanvasY(first.y) - 12, {
+                font: '10px sans-serif',
+                color: this.COLORS.previewBorder
+            });
+        }
     }
 
     drawTarget(target, index) {
-        const x = this.toCanvasX(target.x);
-        const y = this.toCanvasY(target.y);
-        const side = target.x < 0 ? 'LEFT' : (target.x > 0 ? 'RIGHT' : 'CENTER');
-        const canvasSide = x < this.centerX ? 'LEFT' : (x > this.centerX ? 'RIGHT' : 'CENTER');
-        console.log(`[DEBUG] T${index+1}: sensor=${target.x}mm (${side}) → canvas=${Math.round(x)}px (${canvasSide}) [center=${this.centerX}]`);
+        // Transform sensor coordinates to room/display coordinates based on rotation
+        // This is done explicitly since targets are drawn outside the rotated context
+        const transformed = this.transformSensorToRoom(target.x, target.y);
+        const x = this.toCanvasX(transformed.x);
+        const y = this.toCanvasY(transformed.y);
+
+        // Rate-limited debug logging (once per second for first target)
+        if (index === 0 && this.mapRotation !== 0) {
+            const now = Date.now();
+            if (!this._lastTargetLog || now - this._lastTargetLog > 1000) {
+                this._lastTargetLog = now;
+                const side = target.x < 0 ? 'LEFT' : target.x > 0 ? 'RIGHT' : 'CENTER';
+                const canvasSide = x < this.width / 2 ? 'left' : x > this.width / 2 ? 'right' : 'center';
+                console.log(`[TARGET] sensor(${target.x}, ${target.y}) [${side}] -> canvas(${Math.round(x)}, ${Math.round(y)}) [${canvasSide}] rotation=${this.mapRotation}°`);
+            }
+        }
+
+        // Sensor origin also needs transformation for distance line
+        const sensorTransformed = this.transformSensorToRoom(0, 0);
+        const sensorX = this.toCanvasX(sensorTransformed.x);
+        const sensorY = this.toCanvasY(sensorTransformed.y);
+
 
         // Target circle
         this.ctx.fillStyle = this.COLORS.target;
@@ -241,20 +1126,21 @@ export class RadarCanvas {
         this.ctx.arc(x, y, 10 + Math.sin(Date.now() / 200 + index) * 3, 0, Math.PI * 2);
         this.ctx.stroke();
 
-        // Distance line from sensor
+        // Distance line from sensor origin
         this.ctx.strokeStyle = this.COLORS.target;
         this.ctx.lineWidth = 1;
         this.ctx.setLineDash([3, 3]);
         this.ctx.beginPath();
-        this.ctx.moveTo(this.centerX, this.centerY);
+        this.ctx.moveTo(sensorX, sensorY);
         this.ctx.lineTo(x, y);
         this.ctx.stroke();
         this.ctx.setLineDash([]);
 
-        // Label
-        this.ctx.fillStyle = this.COLORS.target;
+        // Label (simple text since we're outside the rotated context)
         this.ctx.font = 'bold 11px sans-serif';
+        this.ctx.fillStyle = this.COLORS.target;
         this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
         this.ctx.fillText(`T${index + 1}`, x, y - 15);
 
         // Distance label
