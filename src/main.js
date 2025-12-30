@@ -894,6 +894,8 @@ function handleTopicChange(newTopic) {
 function handleMQTTMessage(topic, data) {
     try {
         // Data is already parsed by the backend
+        console.log(`[MQTT DATA] Keys: ${Object.keys(data).join(', ')}`);
+        console.log(`[MQTT DATA] Full:`, JSON.stringify(data).substring(0, 500));
 
         // Update target count from Zigbee2MQTT
         if (data.ld2450_target_count !== undefined) {
