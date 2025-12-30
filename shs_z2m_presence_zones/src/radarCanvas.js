@@ -327,8 +327,9 @@ export class RadarCanvas {
 
         // Draw targets OUTSIDE the rotated context using explicit transformation
         // This gives more predictable and debuggable results
+        console.log(`[DRAW FRAME] targets.length = ${targets.length}`);
         if (targets.length > 0) {
-            console.log(`[DRAW FRAME] Drawing ${targets.length} targets`);
+            console.log(`[DRAW FRAME] Drawing ${targets.length} targets:`, JSON.stringify(targets));
         }
         targets.forEach((target, index) => {
             this.drawTarget(target, index);
@@ -1557,14 +1558,15 @@ export class RadarCanvas {
     }
 
     drawTarget(target, index) {
+        console.log(`[DRAW TARGET] Called for target ${index} with data:`, target);
+
         // Transform sensor coordinates to room/display coordinates based on rotation
         // This is done explicitly since targets are drawn outside the rotated context
         const transformed = this.transformSensorToRoom(target.x, target.y);
         const x = this.toCanvasX(transformed.x);
         const y = this.toCanvasY(transformed.y);
 
-        // Debug logging
-        console.log(`[DRAW TARGET ${index}] sensor(${target.x}, ${target.y}) -> canvas(${Math.round(x)}, ${Math.round(y)}) canvas size: ${this.width}x${this.height}`);
+        console.log(`[DRAW TARGET ${index}] sensor(${target.x}, ${target.y}) -> transformed(${transformed.x}, ${transformed.y}) -> canvas(${Math.round(x)}, ${Math.round(y)}) canvas: ${this.width}x${this.height}`);
 
         // Sensor origin also needs transformation for distance line
         const sensorTransformed = this.transformSensorToRoom(0, 0);

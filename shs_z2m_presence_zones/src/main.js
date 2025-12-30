@@ -949,8 +949,12 @@ function handleMQTTMessage(topic, data) {
         // Target 1: EP8=X, EP9=Y, EP10=Distance
         if (data.target1_x !== undefined) {
             state.sensor.positions.t1.x = data.target1_x;
+            console.log(`[POSITION] Target1 X received: ${data.target1_x}`);
         }
-        if (data.target1_y !== undefined) state.sensor.positions.t1.y = data.target1_y;
+        if (data.target1_y !== undefined) {
+            state.sensor.positions.t1.y = data.target1_y;
+            console.log(`[POSITION] Target1 Y received: ${data.target1_y}`);
+        }
         if (data.target1_distance !== undefined) state.sensor.positions.t1.distance = data.target1_distance;
 
         // Target 2: EP11=X, EP12=Y, EP13=Distance
@@ -965,6 +969,7 @@ function handleMQTTMessage(topic, data) {
 
         // Build targets array from position data
         updateTargetsFromPositions();
+        console.log(`[MQTT] After updateTargetsFromPositions: targets array length = ${state.sensor.targets.length}`);
 
         // Redraw canvas with current targets
         radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
@@ -977,6 +982,8 @@ function handleMQTTMessage(topic, data) {
 function updateTargetsFromPositions() {
     state.sensor.targets = [];
 
+    console.log(`[TARGETS] Checking positions - T1:(${state.sensor.positions.t1.x}, ${state.sensor.positions.t1.y}) T2:(${state.sensor.positions.t2.x}, ${state.sensor.positions.t2.y}) T3:(${state.sensor.positions.t3.x}, ${state.sensor.positions.t3.y})`);
+
     // Add target 1 if active (non-zero position)
     if (state.sensor.positions.t1.x !== 0 || state.sensor.positions.t1.y !== 0) {
         state.sensor.targets.push({
@@ -985,6 +992,7 @@ function updateTargetsFromPositions() {
             distance: state.sensor.positions.t1.distance,
             speed: 0  // Speed not provided via Zigbee
         });
+        console.log(`[TARGETS] Added target 1: (${state.sensor.positions.t1.x}, ${state.sensor.positions.t1.y})`);
     }
 
     // Add target 2 if active
@@ -995,6 +1003,7 @@ function updateTargetsFromPositions() {
             distance: state.sensor.positions.t2.distance,
             speed: 0
         });
+        console.log(`[TARGETS] Added target 2: (${state.sensor.positions.t2.x}, ${state.sensor.positions.t2.y})`);
     }
 
     // Add target 3 if active
@@ -1005,7 +1014,10 @@ function updateTargetsFromPositions() {
             distance: state.sensor.positions.t3.distance,
             speed: 0
         });
+        console.log(`[TARGETS] Added target 3: (${state.sensor.positions.t3.x}, ${state.sensor.positions.t3.y})`);
     }
+
+    console.log(`[TARGETS] Final targets array length: ${state.sensor.targets.length}`);
 
     updateTargetListDisplay();
 }
