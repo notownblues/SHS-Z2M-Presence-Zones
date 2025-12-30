@@ -650,12 +650,14 @@ async function fetchAddonConfig() {
             addonConfig = await response.json();
             console.log('Loaded addon config:', addonConfig);
             return true;
+        } else {
+            console.warn('Config.json returned status:', response.status);
         }
     } catch (error) {
         console.warn('Could not load addon config, using defaults:', error);
     }
 
-    // Default config for development
+    // Default config for development (localhost)
     addonConfig = {
         mqtt: {
             host: 'localhost',
@@ -664,6 +666,7 @@ async function fetchAddonConfig() {
             password: ''
         }
     };
+    console.log('Using default addon config:', addonConfig);
     return false;
 }
 
@@ -702,7 +705,8 @@ function connectMQTT() {
     }
 
     console.log('Connecting to MQTT broker:', broker);
-    elements.mqttStatusText.textContent = 'Connecting...';
+    elements.mqttStatusText.textContent = 'Connecting to MQTT...';
+    elements.mqttStatus.classList.remove('online');
 
     // Connect to broker
     state.mqtt.client = mqtt.connect(broker, options);
@@ -740,13 +744,24 @@ function connectMQTT() {
 
     state.mqtt.client.on('error', (error) => {
         console.error('MQTT error:', error);
-        updateConnectionStatus(false);
+        const errorMsg = error.message || error.toString();
+        updateConnectionStatus(false, errorMsg);
     });
 
     state.mqtt.client.on('close', () => {
         console.log('Disconnected from MQTT broker');
         state.mqtt.connected = false;
         updateConnectionStatus(false);
+    });
+
+    state.mqtt.client.on('offline', () => {
+        console.log('MQTT client offline');
+        elements.mqttStatusText.textContent = 'MQTT offline - reconnecting...';
+    });
+
+    state.mqtt.client.on('reconnect', () => {
+        console.log('MQTT reconnecting...');
+        elements.mqttStatusText.textContent = 'Reconnecting to MQTT...';
     });
 
     state.mqtt.client.on('message', handleMQTTMessage);
@@ -1229,22 +1244,20 @@ function handleSensorSelection(event) {
 // UI Update Functions
 // ============================================================================
 
-function updateConnectionStatus(connected) {
+function updateConnectionStatus(connected, errorMessage = null) {
     if (connected) {
         elements.mqttStatus.classList.add('online');
-        elements.mqttStatusText.textContent = 'Connected';
-        if (elements.connectBtn) {
-            elements.connectBtn.textContent = 'Disconnect';
-            elements.connectBtn.classList.remove('btn-primary');
-            elements.connectBtn.classList.add('btn-danger');
-        }
+        elements.mqttStatusText.textContent = 'Connected to MQTT';
+        elements.mqttStatusText.title = '';
     } else {
         elements.mqttStatus.classList.remove('online');
-        elements.mqttStatusText.textContent = 'Disconnected';
-        if (elements.connectBtn) {
-            elements.connectBtn.textContent = 'Connect';
-            elements.connectBtn.classList.remove('btn-danger');
-            elements.connectBtn.classList.add('btn-primary');
+        if (errorMessage) {
+            elements.mqttStatusText.textContent = 'Connection failed';
+            elements.mqttStatusText.title = errorMessage;
+            console.error('MQTT connection error:', errorMessage);
+        } else {
+            elements.mqttStatusText.textContent = 'Disconnected from MQTT';
+            elements.mqttStatusText.title = '';
         }
     }
 }
@@ -1560,10 +1573,12 @@ async function init() {
     animate();
 
     // Auto-connect to MQTT if we have a topic configured
-    updateConnectionStatus(false);
     const topic = elements.mqttTopic.value;
     if (topic && topic.trim()) {
         connectMQTT();
+    } else {
+        elements.mqttStatusText.textContent = 'Enter MQTT topic to connect';
+        elements.mqttStatus.classList.remove('online');
     }
 }
 

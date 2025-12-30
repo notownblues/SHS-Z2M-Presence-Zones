@@ -1,5 +1,5 @@
 name: SHS Z2M Presence Zone Configurator
-version: "2.1.0"
+version: "2.1.1"
 slug: shs_z2m_presence_zones
 description: Web-based zone configurator for SHS01 mmWave presence sensor via Zigbee2MQTT
 url: https://github.com/notownblues/SHS-Z2M-Presence-Zones
