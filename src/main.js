@@ -117,6 +117,7 @@ const elements = {
     // Target Info
     targetCount: document.getElementById('targetCount'),
     occupancy: document.getElementById('occupancy'),
+    occupancyIcon: document.getElementById('occupancyIcon'),
     targetList: document.getElementById('targetList'),
 
     // Zone Controls
@@ -132,6 +133,7 @@ const elements = {
     zone1Status: document.getElementById('zone1Status'),
     zone1Info: document.getElementById('zone1Info'),
     zone1Card: document.getElementById('zone1Card'),
+    zone1OccupancyIcon: document.getElementById('zone1OccupancyIcon'),
 
     zone2Enable: document.getElementById('zone2Enable'),
     zone2X1: document.getElementById('zone2X1'),
@@ -141,6 +143,7 @@ const elements = {
     zone2Status: document.getElementById('zone2Status'),
     zone2Info: document.getElementById('zone2Info'),
     zone2Card: document.getElementById('zone2Card'),
+    zone2OccupancyIcon: document.getElementById('zone2OccupancyIcon'),
 
     zone3Enable: document.getElementById('zone3Enable'),
     zone3X1: document.getElementById('zone3X1'),
@@ -150,6 +153,7 @@ const elements = {
     zone3Status: document.getElementById('zone3Status'),
     zone3Info: document.getElementById('zone3Info'),
     zone3Card: document.getElementById('zone3Card'),
+    zone3OccupancyIcon: document.getElementById('zone3OccupancyIcon'),
 
     zone4Enable: document.getElementById('zone4Enable'),
     zone4X1: document.getElementById('zone4X1'),
@@ -159,6 +163,7 @@ const elements = {
     zone4Status: document.getElementById('zone4Status'),
     zone4Info: document.getElementById('zone4Info'),
     zone4Card: document.getElementById('zone4Card'),
+    zone4OccupancyIcon: document.getElementById('zone4OccupancyIcon'),
 
     zone5Enable: document.getElementById('zone5Enable'),
     zone5X1: document.getElementById('zone5X1'),
@@ -168,6 +173,7 @@ const elements = {
     zone5Status: document.getElementById('zone5Status'),
     zone5Info: document.getElementById('zone5Info'),
     zone5Card: document.getElementById('zone5Card'),
+    zone5OccupancyIcon: document.getElementById('zone5OccupancyIcon'),
 
     // Zone Type Selectors
     zone1Type: document.getElementById('zone1Type'),
@@ -876,26 +882,31 @@ function handleMQTTMessage(topic, data) {
             state.sensor.zones[0].occupied = data.zone1_occupied;
             elements.zone1Status.textContent = data.zone1_occupied ? 'Occupied' : 'Clear';
             elements.zone1Status.classList.toggle('occupied', data.zone1_occupied);
+            elements.zone1OccupancyIcon?.classList.toggle('occupied', data.zone1_occupied);
         }
         if (data.zone2_occupied !== undefined) {
             state.sensor.zones[1].occupied = data.zone2_occupied;
             elements.zone2Status.textContent = data.zone2_occupied ? 'Occupied' : 'Clear';
             elements.zone2Status.classList.toggle('occupied', data.zone2_occupied);
+            elements.zone2OccupancyIcon?.classList.toggle('occupied', data.zone2_occupied);
         }
         if (data.zone3_occupied !== undefined) {
             state.sensor.zones[2].occupied = data.zone3_occupied;
             elements.zone3Status.textContent = data.zone3_occupied ? 'Occupied' : 'Clear';
             elements.zone3Status.classList.toggle('occupied', data.zone3_occupied);
+            elements.zone3OccupancyIcon?.classList.toggle('occupied', data.zone3_occupied);
         }
         if (data.zone4_occupied !== undefined) {
             state.sensor.zones[3].occupied = data.zone4_occupied;
             elements.zone4Status.textContent = data.zone4_occupied ? 'Occupied' : 'Clear';
             elements.zone4Status.classList.toggle('occupied', data.zone4_occupied);
+            elements.zone4OccupancyIcon?.classList.toggle('occupied', data.zone4_occupied);
         }
         if (data.zone5_occupied !== undefined) {
             state.sensor.zones[4].occupied = data.zone5_occupied;
             elements.zone5Status.textContent = data.zone5_occupied ? 'Occupied' : 'Clear';
             elements.zone5Status.classList.toggle('occupied', data.zone5_occupied);
+            elements.zone5OccupancyIcon?.classList.toggle('occupied', data.zone5_occupied);
         }
 
         // Update position data from EP8-16 (Target 1, 2, 3 X/Y/Distance)
@@ -1355,6 +1366,7 @@ function updateTargetCountDisplay() {
 function updateOccupancyDisplay() {
     elements.occupancy.textContent = state.sensor.occupancy ? 'Occupied' : 'Clear';
     elements.occupancy.style.color = state.sensor.occupancy ? '#3fb950' : '#8b949e';
+    elements.occupancyIcon?.classList.toggle('occupied', state.sensor.occupancy);
 }
 
 function updateTargetListDisplay() {
