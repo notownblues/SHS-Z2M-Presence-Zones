@@ -419,7 +419,7 @@ export class DrawingManager {
      * Handle select mode mouse down
      */
     handleSelectMouseDown(canvasCoords, sensorCoords) {
-        // Check for handle click first (for selected furniture)
+        // Check for handle click first (for selected furniture - resizing)
         if (this.selectedFurnitureIndex !== null) {
             const furniture = this.state.annotations.furniture[this.selectedFurnitureIndex];
             const handle = this.getFurnitureHandleAtPoint(canvasCoords.x, canvasCoords.y, furniture);
@@ -429,9 +429,19 @@ export class DrawingManager {
                 this.startPoint = sensorCoords;
                 return;
             }
+            // If clicking on already-selected furniture (not handle), start dragging
+            if (this.isPointInFurniture(sensorCoords.x, sensorCoords.y, furniture)) {
+                this.isDragging = true;
+                this.dragOffset = {
+                    x: sensorCoords.x - furniture.x,
+                    y: sensorCoords.y - furniture.y
+                };
+                this.canvas.style.cursor = 'move';
+                return;
+            }
         }
 
-        // Check for handle click (for selected zone)
+        // Check for handle click (for selected zone - resizing)
         if (this.selectedZoneIndex !== null) {
             const zone = this.state.zones.zones[this.selectedZoneIndex];
             const handle = this.getHandleAtPoint(canvasCoords.x, canvasCoords.y, zone, this.selectedZoneIndex);
@@ -439,6 +449,45 @@ export class DrawingManager {
                 this.selectedHandle = { ...handle, itemType: 'zone' };
                 this.isDragging = true;
                 this.startPoint = sensorCoords;
+                return;
+            }
+            // If clicking on already-selected zone (not handle), start dragging
+            if (zone.enabled && this.isPointInZone(sensorCoords.x, sensorCoords.y, zone)) {
+                this.isDragging = true;
+                const corners = this.getZoneCorners(zone);
+                this.dragOffset = {
+                    x: sensorCoords.x - (corners.x1 + corners.x2) / 2,
+                    y: sensorCoords.y - (corners.y1 + corners.y2) / 2
+                };
+                this.canvas.style.cursor = 'move';
+                return;
+            }
+        }
+
+        // If clicking on already-selected entrance, start dragging
+        if (this.selectedEntranceIndex !== null) {
+            const entrance = this.state.annotations.entrances[this.selectedEntranceIndex];
+            if (entrance && this.isPointInEntrance(sensorCoords.x, sensorCoords.y, entrance)) {
+                this.isDragging = true;
+                this.dragOffset = {
+                    x: sensorCoords.x - entrance.x,
+                    y: sensorCoords.y - entrance.y
+                };
+                this.canvas.style.cursor = 'move';
+                return;
+            }
+        }
+
+        // If clicking on already-selected edge, start dragging
+        if (this.selectedEdgeIndex !== null) {
+            const edge = this.state.annotations.edges[this.selectedEdgeIndex];
+            if (edge && this.isPointInEdge(sensorCoords.x, sensorCoords.y, edge)) {
+                this.isDragging = true;
+                this.dragOffset = {
+                    x: sensorCoords.x - (edge.x1 + edge.x2) / 2,
+                    y: sensorCoords.y - (edge.y1 + edge.y2) / 2
+                };
+                this.canvas.style.cursor = 'move';
                 return;
             }
         }
@@ -449,7 +498,6 @@ export class DrawingManager {
             if (this.isPointInEntrance(sensorCoords.x, sensorCoords.y, entrance)) {
                 this.clearOtherSelections('entrance');
                 this.selectedEntranceIndex = i;
-                // Don't auto-drag - require explicit Move button click
                 if (this.callbacks.onEntranceSelect) {
                     this.callbacks.onEntranceSelect(i, entrance);
                 }
@@ -463,7 +511,6 @@ export class DrawingManager {
             if (this.isPointInFurniture(sensorCoords.x, sensorCoords.y, furniture)) {
                 this.clearOtherSelections('furniture');
                 this.selectedFurnitureIndex = i;
-                // Don't auto-drag - require explicit Move button click
                 if (this.callbacks.onFurnitureSelect) {
                     this.callbacks.onFurnitureSelect(i, furniture);
                 }
@@ -477,7 +524,6 @@ export class DrawingManager {
             if (this.isPointInZone(sensorCoords.x, sensorCoords.y, zone)) {
                 this.clearOtherSelections('zone');
                 this.selectedZoneIndex = i;
-                // Don't auto-drag - require explicit Move button click
                 if (this.callbacks.onZoneSelect) {
                     this.callbacks.onZoneSelect(i);
                 }
@@ -640,11 +686,21 @@ export class DrawingManager {
     getFurnitureHandleAtPoint(canvasX, canvasY, furniture) {
         if (!furniture) return null;
 
-        const cx = this.radarCanvas.toCanvasX(furniture.x);
-        const cy = this.radarCanvas.toCanvasY(furniture.y);
+        // Get furniture center in sensor coords, then convert to rotated canvas coords
+        const centerCanvas = this.toCanvasCoords(furniture.x, furniture.y);
+        const cx = centerCanvas.x;
+        const cy = centerCanvas.y;
+
         const halfW = (furniture.width * this.radarCanvas.scaleX) / 2;
         const halfH = (furniture.height * this.radarCanvas.scaleY) / 2;
-        const rotation = (furniture.rotation || 0) * Math.PI / 180;
+
+        // Combined rotation: map rotation + furniture rotation
+        const mapRotation = (this.radarCanvas.mapRotation || 0) * Math.PI / 180;
+        const furnitureRotation = (furniture.rotation || 0) * Math.PI / 180;
+        const totalRotation = mapRotation + furnitureRotation;
+
+        const cos = Math.cos(totalRotation);
+        const sin = Math.sin(totalRotation);
 
         // Define handles in local coordinates (relative to center)
         const localHandles = [
@@ -654,12 +710,8 @@ export class DrawingManager {
             { type: 'se', lx: halfW, ly: halfH }
         ];
 
-        // Transform handles to canvas coordinates
-        const cos = Math.cos(rotation);
-        const sin = Math.sin(rotation);
-
         for (const handle of localHandles) {
-            // Rotate local coords
+            // Rotate local coords by combined rotation
             const rx = handle.lx * cos - handle.ly * sin;
             const ry = handle.lx * sin + handle.ly * cos;
 
@@ -817,7 +869,7 @@ export class DrawingManager {
             this.moveFurniture(sensorCoords);
         } else if (this.selectedZoneIndex !== null) {
             this.moveZone(sensorCoords);
-        } else if (this.selectedEdgeIndex !== null && this.isRightClickDragging) {
+        } else if (this.selectedEdgeIndex !== null) {
             this.moveEdge(sensorCoords);
         }
     }

@@ -421,10 +421,30 @@ function showShapeActions(shape) {
     if (!elements.shapeActions || !shape) return;
 
     // Get shape bounds in sensor coordinates
-    const sensorX1 = shape.x1 !== undefined ? shape.x1 : shape.x;
-    const sensorY1 = shape.y1 !== undefined ? shape.y1 : shape.y;
-    const sensorX2 = shape.x2 !== undefined ? shape.x2 : shape.x;
-    const sensorY2 = shape.y2 !== undefined ? shape.y2 : shape.y;
+    // For furniture/entrances with center point + dimensions, calculate bounds
+    let sensorX1, sensorY1, sensorX2, sensorY2;
+
+    if (shape.x1 !== undefined) {
+        // Zones and edges have x1,y1,x2,y2
+        sensorX1 = shape.x1;
+        sensorY1 = shape.y1;
+        sensorX2 = shape.x2;
+        sensorY2 = shape.y2;
+    } else if (shape.width !== undefined && shape.height !== undefined) {
+        // Furniture has center point + width/height
+        const halfW = shape.width / 2;
+        const halfH = shape.height / 2;
+        sensorX1 = shape.x - halfW;
+        sensorY1 = shape.y - halfH;
+        sensorX2 = shape.x + halfW;
+        sensorY2 = shape.y + halfH;
+    } else {
+        // Entrances - just use center point with small radius
+        sensorX1 = shape.x - 200;
+        sensorY1 = shape.y - 200;
+        sensorX2 = shape.x + 200;
+        sensorY2 = shape.y + 200;
+    }
 
     // Convert to unrotated canvas coordinates
     const canvasX1 = radarCanvas.toCanvasX(sensorX1);
@@ -455,8 +475,10 @@ function showShapeActions(shape) {
     const scaleX = elements.radarCanvas.width / canvasRect.width;
     const scaleY = elements.radarCanvas.height / canvasRect.height;
 
+    // Get the shape actions bar height (approximately 36px)
+    const barHeight = 40;
     const displayX = rotatedCenterX / scaleX;
-    const displayY = (rotatedTopY / scaleY) - 60; // 60px above the shape top edge
+    const displayY = (rotatedTopY / scaleY) - barHeight - 10; // Position bar above object with 10px gap
 
     // Show/hide resize buttons based on item type (zones don't support resize)
     const showResizeButtons = selectedItemType !== 'zone';
