@@ -1008,7 +1008,10 @@ function loadCredentials() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             const settings = JSON.parse(saved);
-            if (settings.baseTopic) elements.mqttTopic.value = settings.baseTopic;
+            if (settings.baseTopic) {
+                elements.mqttTopic.value = settings.baseTopic;
+                state.mqtt.baseTopic = settings.baseTopic; // Also update state!
+            }
             if (settings.roomName) elements.roomName.value = settings.roomName;
         }
     } catch (error) {
