@@ -4,32 +4,30 @@ FROM $BUILD_FROM
 # Install nodejs
 RUN apk add --no-cache nodejs npm
 
-# Create app directory
-WORKDIR /app
-
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Build frontend
+# Build frontend first
 WORKDIR /build
 COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+COPY vite.config.js ./
+COPY index.html ./
+COPY src/ ./src/
+RUN npm ci && npm run build
 
-# Move built files to www directory for serving
-RUN mkdir -p /app/www && cp -r dist/* /app/www/
-
-# Copy server files
+# Set up server
 WORKDIR /app
+
+# Copy built frontend
+RUN mkdir -p /app/www && cp -r /build/dist/* /app/www/
+
+# Copy server files and install server dependencies
 COPY server.js ./
+COPY package.json ./
+RUN npm install --only=production express ws mqtt
 
 # Copy run script
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
-# Cleanup build directory
+# Cleanup
 RUN rm -rf /build
 
 ENTRYPOINT []
