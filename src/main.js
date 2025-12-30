@@ -184,7 +184,12 @@ const elements = {
 
     // Buttons
     applyZonesBtn: document.getElementById('applyZonesBtn'),
-    resetZonesBtn: document.getElementById('resetZonesBtn')
+    resetZonesBtn: document.getElementById('resetZonesBtn'),
+    zone1ClearBtn: document.getElementById('zone1ClearBtn'),
+    zone2ClearBtn: document.getElementById('zone2ClearBtn'),
+    zone3ClearBtn: document.getElementById('zone3ClearBtn'),
+    zone4ClearBtn: document.getElementById('zone4ClearBtn'),
+    zone5ClearBtn: document.getElementById('zone5ClearBtn')
 };
 
 // ============================================================================
@@ -1555,6 +1560,27 @@ function resetZones() {
     }
 }
 
+function clearZone(zoneIndex) {
+    // Reset zone to default (disabled, zeroed coordinates)
+    state.zones.zones[zoneIndex] = {
+        enabled: false,
+        x1: 0,
+        y1: 0,
+        x2: 0,
+        y2: 0,
+        type: 'detection'
+    };
+
+    // Update form values
+    loadZoneFormValues();
+
+    // Redraw canvas
+    radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+
+    // Trigger auto-save
+    debouncedSave();
+}
+
 // ============================================================================
 // Event Listeners
 // ============================================================================
@@ -1612,6 +1638,13 @@ elements.applyZonesBtn.addEventListener('click', () => {
 
 // Reset Zones Button
 elements.resetZonesBtn.addEventListener('click', resetZones);
+
+// Clear Zone Buttons
+if (elements.zone1ClearBtn) elements.zone1ClearBtn.addEventListener('click', (e) => { e.stopPropagation(); clearZone(0); });
+if (elements.zone2ClearBtn) elements.zone2ClearBtn.addEventListener('click', (e) => { e.stopPropagation(); clearZone(1); });
+if (elements.zone3ClearBtn) elements.zone3ClearBtn.addEventListener('click', (e) => { e.stopPropagation(); clearZone(2); });
+if (elements.zone4ClearBtn) elements.zone4ClearBtn.addEventListener('click', (e) => { e.stopPropagation(); clearZone(3); });
+if (elements.zone5ClearBtn) elements.zone5ClearBtn.addEventListener('click', (e) => { e.stopPropagation(); clearZone(4); });
 
 // Position Reporting Toggle Button
 if (elements.positionReportingBtn) {

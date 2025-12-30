@@ -1560,7 +1560,7 @@ export class RadarCanvas {
         const y = this.toCanvasY(transformed.y);
 
         // Pulsating outer ring (blue, animates)
-        const pulseRadius = 18 + Math.sin(Date.now() / 300 + index) * 4;
+        const pulseRadius = 24 + Math.sin(Date.now() / 300 + index) * 5;
         this.ctx.strokeStyle = 'rgba(74, 124, 232, 0.6)';
         this.ctx.lineWidth = 1.5;
         this.ctx.beginPath();
@@ -1570,21 +1570,14 @@ export class RadarCanvas {
         // White ring (border around blue dot)
         this.ctx.fillStyle = '#ffffff';
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 11, 0, Math.PI * 2);
+        this.ctx.arc(x, y, 15, 0, Math.PI * 2);
         this.ctx.fill();
 
         // Blue filled dot (center)
         this.ctx.fillStyle = '#4a7ce8';
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 8, 0, Math.PI * 2);
+        this.ctx.arc(x, y, 11, 0, Math.PI * 2);
         this.ctx.fill();
-
-        // Label above
-        this.ctx.font = 'bold 11px sans-serif';
-        this.ctx.fillStyle = this.COLORS.target;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`T${index + 1}`, x, y - 22);
     }
 
     /**
