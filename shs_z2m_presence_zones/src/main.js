@@ -918,32 +918,42 @@ function handleMQTTMessage(topic, data) {
         // Update zone occupancy
         if (data.zone1_occupied !== undefined) {
             state.sensor.zones[0].occupied = data.zone1_occupied;
-            elements.zone1Status.textContent = data.zone1_occupied ? 'Occupied' : 'Clear';
-            elements.zone1Status.classList.toggle('occupied', data.zone1_occupied);
+            if (elements.zone1Status) {
+                elements.zone1Status.textContent = data.zone1_occupied ? 'Occupied' : 'Clear';
+                elements.zone1Status.classList.toggle('occupied', data.zone1_occupied);
+            }
             elements.zone1OccupancyIcon?.classList.toggle('occupied', data.zone1_occupied);
         }
         if (data.zone2_occupied !== undefined) {
             state.sensor.zones[1].occupied = data.zone2_occupied;
-            elements.zone2Status.textContent = data.zone2_occupied ? 'Occupied' : 'Clear';
-            elements.zone2Status.classList.toggle('occupied', data.zone2_occupied);
+            if (elements.zone2Status) {
+                elements.zone2Status.textContent = data.zone2_occupied ? 'Occupied' : 'Clear';
+                elements.zone2Status.classList.toggle('occupied', data.zone2_occupied);
+            }
             elements.zone2OccupancyIcon?.classList.toggle('occupied', data.zone2_occupied);
         }
         if (data.zone3_occupied !== undefined) {
             state.sensor.zones[2].occupied = data.zone3_occupied;
-            elements.zone3Status.textContent = data.zone3_occupied ? 'Occupied' : 'Clear';
-            elements.zone3Status.classList.toggle('occupied', data.zone3_occupied);
+            if (elements.zone3Status) {
+                elements.zone3Status.textContent = data.zone3_occupied ? 'Occupied' : 'Clear';
+                elements.zone3Status.classList.toggle('occupied', data.zone3_occupied);
+            }
             elements.zone3OccupancyIcon?.classList.toggle('occupied', data.zone3_occupied);
         }
         if (data.zone4_occupied !== undefined) {
             state.sensor.zones[3].occupied = data.zone4_occupied;
-            elements.zone4Status.textContent = data.zone4_occupied ? 'Occupied' : 'Clear';
-            elements.zone4Status.classList.toggle('occupied', data.zone4_occupied);
+            if (elements.zone4Status) {
+                elements.zone4Status.textContent = data.zone4_occupied ? 'Occupied' : 'Clear';
+                elements.zone4Status.classList.toggle('occupied', data.zone4_occupied);
+            }
             elements.zone4OccupancyIcon?.classList.toggle('occupied', data.zone4_occupied);
         }
         if (data.zone5_occupied !== undefined) {
             state.sensor.zones[4].occupied = data.zone5_occupied;
-            elements.zone5Status.textContent = data.zone5_occupied ? 'Occupied' : 'Clear';
-            elements.zone5Status.classList.toggle('occupied', data.zone5_occupied);
+            if (elements.zone5Status) {
+                elements.zone5Status.textContent = data.zone5_occupied ? 'Occupied' : 'Clear';
+                elements.zone5Status.classList.toggle('occupied', data.zone5_occupied);
+            }
             elements.zone5OccupancyIcon?.classList.toggle('occupied', data.zone5_occupied);
         }
 
