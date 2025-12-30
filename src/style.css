@@ -636,6 +636,20 @@ body {
     white-space: nowrap;
 }
 
+/* Button row for Save/Delete */
+.button-row {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.button-row .btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
 /* ============================================================================
  * Zone Controls
  * ============================================================================ */
