@@ -1280,23 +1280,28 @@ export class RadarCanvas {
         const y = this.toCanvasY(0);
         const sensorColor = '#f97316'; // Orange
 
-        // Sensor circle (larger)
-        this.ctx.fillStyle = sensorColor;
+        // Pulsating outer ring (orange, animates)
+        const pulseRadius = 22 + Math.sin(Date.now() / 300) * 4;
+        this.ctx.strokeStyle = 'rgba(249, 115, 22, 0.5)';
+        this.ctx.lineWidth = 1.5;
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 12, 0, Math.PI * 2);
+        this.ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+        this.ctx.stroke();
+
+        // White ring (border)
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 14, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Detection cone (180° arc)
-        this.ctx.strokeStyle = sensorColor;
-        this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([5, 5]);
+        // Orange filled dot (center)
+        this.ctx.fillStyle = sensorColor;
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 35, Math.PI, 0, false);
-        this.ctx.stroke();
-        this.ctx.setLineDash([]);
+        this.ctx.arc(x, y, 10, 0, Math.PI * 2);
+        this.ctx.fill();
 
         // Label (upright)
-        this.drawUprightText('SHS01', x, y - 25, {
+        this.drawUprightText('SHS01', x, y - 28, {
             font: '12px sans-serif',
             color: sensorColor
         });
