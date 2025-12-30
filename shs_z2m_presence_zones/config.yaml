@@ -1,5 +1,5 @@
 name: SHS Z2M Presence Zone Configurator
-version: "2.0.0"
+version: "2.1.0"
 slug: shs_z2m_presence_zones
 description: Web-based zone configurator for SHS01 mmWave presence sensor via Zigbee2MQTT
 url: https://github.com/notownblues/SHS-Z2M-Presence-Zones
@@ -21,10 +21,8 @@ options:
   mqtt_ws_port: 1884
   mqtt_username: ""
   mqtt_password: ""
-  mqtt_base_topic: zigbee2mqtt/SHS01
 schema:
   mqtt_host: str
   mqtt_ws_port: port
   mqtt_username: str?
   mqtt_password: password?
-  mqtt_base_topic: str

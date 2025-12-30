@@ -4,8 +4,11 @@ import { ZoneManager } from './zoneManager.js';
 import { StorageManager } from './storageManager.js';
 import { DrawingManager } from './drawingManager.js';
 
-// LocalStorage key for saving credentials
+// LocalStorage key for saving room name
 const STORAGE_KEY = 'ld2450_zone_config_settings';
+
+// Addon config loaded from config.json
+let addonConfig = null;
 
 // ============================================================================
 // Application State
@@ -48,7 +51,8 @@ const state = {
     // Visual annotations (not sent to sensor)
     annotations: {
         furniture: [],
-        entrances: []
+        entrances: [],
+        edges: []  // Grey-out areas for room boundaries
     },
     // Canvas interaction state
     canvas: {
@@ -74,18 +78,14 @@ const state = {
 // ============================================================================
 
 const elements = {
-    // MQTT Connection
+    // MQTT Connection (broker settings from addon config, topic from UI)
     mqttStatus: document.getElementById('mqttStatus'),
     mqttStatusText: document.getElementById('mqttStatusText'),
-    mqttBroker: document.getElementById('mqttBroker'),
-    mqttUsername: document.getElementById('mqttUsername'),
-    mqttPassword: document.getElementById('mqttPassword'),
     mqttTopic: document.getElementById('mqttTopic'),
     roomName: document.getElementById('roomName'),
     saveRoomBtn: document.getElementById('saveRoomBtn'),
     deleteRoomBtn: document.getElementById('deleteRoomBtn'),
     sensorSelector: document.getElementById('sensorSelector'),
-    connectBtn: document.getElementById('connectBtn'),
     positionReportingBtn: document.getElementById('positionReportingBtn'),
 
     // Canvas & Shape Actions
@@ -94,6 +94,8 @@ const elements = {
     shapeActions: document.getElementById('shapeActions'),
     moveShapeBtn: document.getElementById('moveShapeBtn'),
     rotateShapeBtn: document.getElementById('rotateShapeBtn'),
+    increaseSizeBtn: document.getElementById('increaseSizeBtn'),
+    decreaseSizeBtn: document.getElementById('decreaseSizeBtn'),
     deleteShapeBtn: document.getElementById('deleteShapeBtn'),
 
     // Placement Done
@@ -290,6 +292,38 @@ const drawingManager = new DrawingManager(radarCanvas, state, {
         radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
         triggerAutoSave();
     },
+    // Edge callbacks
+    onEdgePlaced: (edge) => {
+        radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+        triggerAutoSave();
+    },
+    onEdgeSelect: (index, edge) => {
+        radarCanvas.setSelectedEdge(index);
+
+        if (index !== null) {
+            radarCanvas.setSelectedZone(null);
+            radarCanvas.setSelectedFurniture(null);
+            radarCanvas.setSelectedEntrance(null);
+            selectedItemType = 'edge';
+            selectedItemIndex = index;
+            updateZoneCardSelection(null);
+            if (edge) {
+                showShapeActions(edge);
+            }
+        } else {
+            selectedItemType = null;
+            selectedItemIndex = null;
+            hideShapeActions();
+        }
+    },
+    onEdgeDeleted: (index) => {
+        selectedItemType = null;
+        selectedItemIndex = null;
+        hideShapeActions();
+        radarCanvas.setSelectedEdge(null);
+        radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+        triggerAutoSave();
+    },
     onError: (message) => {
         alert(message);
     }
@@ -425,6 +459,15 @@ function showShapeActions(shape) {
     const displayX = rotatedCenterX / scaleX;
     const displayY = (rotatedTopY / scaleY) - 45; // 45px above the shape
 
+    // Show/hide resize buttons based on item type (zones don't support resize)
+    const showResizeButtons = selectedItemType !== 'zone';
+    if (elements.increaseSizeBtn) {
+        elements.increaseSizeBtn.style.display = showResizeButtons ? 'flex' : 'none';
+    }
+    if (elements.decreaseSizeBtn) {
+        elements.decreaseSizeBtn.style.display = showResizeButtons ? 'flex' : 'none';
+    }
+
     // Position the action buttons
     elements.shapeActions.style.left = `${displayX}px`;
     elements.shapeActions.style.top = `${Math.max(10, displayY)}px`;
@@ -485,6 +528,79 @@ function deleteSelectedShape() {
         drawingManager.deleteSelectedFurniture();
     } else if (selectedItemType === 'entrance' && selectedItemIndex !== null) {
         drawingManager.deleteSelectedEntrance();
+    } else if (selectedItemType === 'edge' && selectedItemIndex !== null) {
+        deleteSelectedEdge();
+    }
+}
+
+/**
+ * Delete the selected edge
+ */
+function deleteSelectedEdge() {
+    if (selectedItemType !== 'edge' || selectedItemIndex === null) return;
+
+    drawingManager.deleteSelectedEdge();
+}
+
+/**
+ * Resize selected furniture or entrance by a scale factor
+ * @param {number} scaleFactor - 1.1 to increase by 10%, 0.9 to decrease by 10%
+ */
+function resizeSelectedShape(scaleFactor) {
+    const MIN_SIZE = 200;  // Minimum 200mm
+    const MAX_SIZE = 4000; // Maximum 4000mm
+
+    if (selectedItemType === 'furniture' && selectedItemIndex !== null) {
+        const furniture = state.annotations.furniture[selectedItemIndex];
+        if (furniture) {
+            const newWidth = Math.round(furniture.width * scaleFactor);
+            const newHeight = Math.round(furniture.height * scaleFactor);
+
+            // Clamp to min/max
+            furniture.width = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newWidth));
+            furniture.height = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newHeight));
+
+            showShapeActions(furniture);
+            radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+            triggerAutoSave();
+        }
+    } else if (selectedItemType === 'entrance' && selectedItemIndex !== null) {
+        const entrance = state.annotations.entrances[selectedItemIndex];
+        if (entrance) {
+            // Initialize width if not present (default 800mm door)
+            if (!entrance.width) entrance.width = 800;
+
+            const newWidth = Math.round(entrance.width * scaleFactor);
+            entrance.width = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newWidth));
+
+            showShapeActions(entrance);
+            radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+            triggerAutoSave();
+        }
+    } else if (selectedItemType === 'edge' && selectedItemIndex !== null) {
+        const edge = state.annotations.edges[selectedItemIndex];
+        if (edge) {
+            // Scale edge dimensions from center
+            const centerX = (edge.x1 + edge.x2) / 2;
+            const centerY = (edge.y1 + edge.y2) / 2;
+            const halfWidth = Math.abs(edge.x2 - edge.x1) / 2 * scaleFactor;
+            const halfHeight = Math.abs(edge.y2 - edge.y1) / 2 * scaleFactor;
+
+            edge.x1 = Math.round(centerX - halfWidth);
+            edge.x2 = Math.round(centerX + halfWidth);
+            edge.y1 = Math.round(centerY - halfHeight);
+            edge.y2 = Math.round(centerY + halfHeight);
+
+            // Clamp to sensor bounds
+            edge.x1 = Math.max(-3000, Math.min(3000, edge.x1));
+            edge.x2 = Math.max(-3000, Math.min(3000, edge.x2));
+            edge.y1 = Math.max(0, Math.min(6000, edge.y1));
+            edge.y2 = Math.max(0, Math.min(6000, edge.y2));
+
+            showShapeActions(edge);
+            radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+            triggerAutoSave();
+        }
     }
 }
 
@@ -521,13 +637,50 @@ function updateZoneCards() {
 }
 
 // ============================================================================
+// Addon Config Functions
+// ============================================================================
+
+/**
+ * Fetch addon configuration from config.json
+ */
+async function fetchAddonConfig() {
+    try {
+        const response = await fetch('/config.json');
+        if (response.ok) {
+            addonConfig = await response.json();
+            console.log('Loaded addon config:', addonConfig);
+            return true;
+        }
+    } catch (error) {
+        console.warn('Could not load addon config, using defaults:', error);
+    }
+
+    // Default config for development
+    addonConfig = {
+        mqtt: {
+            host: 'localhost',
+            wsPort: 9001,
+            username: '',
+            password: ''
+        }
+    };
+    return false;
+}
+
+// ============================================================================
 // MQTT Functions
 // ============================================================================
 
 function connectMQTT() {
-    const broker = elements.mqttBroker.value;
-    const username = elements.mqttUsername.value;
-    const password = elements.mqttPassword.value;
+    if (!addonConfig) {
+        console.error('Addon config not loaded');
+        return;
+    }
+
+    // Build broker URL from addon config
+    const broker = `ws://${addonConfig.mqtt.host}:${addonConfig.mqtt.wsPort}`;
+    const username = addonConfig.mqtt.username || '';
+    const password = addonConfig.mqtt.password || '';
     const baseTopic = elements.mqttTopic.value;
 
     // Update state
@@ -611,6 +764,52 @@ function disconnectMQTT() {
     if (elements.positionReportingBtn) {
         elements.positionReportingBtn.disabled = true;
     }
+}
+
+/**
+ * Handle MQTT topic change - resubscribe to new topic
+ */
+function handleTopicChange(newTopic) {
+    if (!newTopic || !newTopic.trim()) {
+        return;
+    }
+
+    const oldTopic = state.mqtt.baseTopic;
+
+    // Update state
+    state.mqtt.baseTopic = newTopic;
+
+    // If connected, resubscribe to new topic
+    if (state.mqtt.connected && state.mqtt.client) {
+        // Unsubscribe from old topic
+        if (oldTopic) {
+            state.mqtt.client.unsubscribe(oldTopic, (err) => {
+                if (err) {
+                    console.warn('Failed to unsubscribe from old topic:', err);
+                } else {
+                    console.log('Unsubscribed from:', oldTopic);
+                }
+            });
+        }
+
+        // Subscribe to new topic
+        state.mqtt.client.subscribe(newTopic, (err) => {
+            if (err) {
+                console.error('Failed to subscribe to new topic:', err);
+            } else {
+                console.log('Subscribed to new topic:', newTopic);
+                // Request current position_reporting state from Z2M
+                const getTopic = `${newTopic}/get`;
+                state.mqtt.client.publish(getTopic, JSON.stringify({ position_reporting: '' }));
+            }
+        });
+    } else if (newTopic.trim()) {
+        // Not connected yet, try to connect
+        connectMQTT();
+    }
+
+    // Save to localStorage
+    saveCredentials();
 }
 
 // ============================================================================
@@ -826,10 +1025,8 @@ function publishZoneConfig() {
 // ============================================================================
 
 function saveCredentials() {
+    // Only save room name and topic - broker settings come from addon config
     const settings = {
-        broker: elements.mqttBroker.value,
-        username: elements.mqttUsername.value,
-        password: elements.mqttPassword.value,
         baseTopic: elements.mqttTopic.value,
         roomName: elements.roomName.value
     };
@@ -841,9 +1038,6 @@ function loadCredentials() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             const settings = JSON.parse(saved);
-            if (settings.broker) elements.mqttBroker.value = settings.broker;
-            if (settings.username) elements.mqttUsername.value = settings.username;
-            if (settings.password) elements.mqttPassword.value = settings.password;
             if (settings.baseTopic) elements.mqttTopic.value = settings.baseTopic;
             if (settings.roomName) elements.roomName.value = settings.roomName;
         }
@@ -890,12 +1084,18 @@ function loadSensorConfig(roomName) {
         // Load zones with migration for old format
         state.zones = storageManager.migrateZoneConfig(config.zones);
 
-        // Load annotations
-        state.annotations = config.annotations || storageManager.getDefaultAnnotations();
+        // Load annotations (with edges support)
+        const annotations = config.annotations || storageManager.getDefaultAnnotations();
+        state.annotations = {
+            furniture: annotations.furniture || [],
+            entrances: annotations.entrances || [],
+            edges: annotations.edges || []
+        };
 
-        // Load MQTT topic if saved with the config
-        if (config.mqttTopic) {
+        // Load MQTT topic if saved with the config - trigger reconnect
+        if (config.mqttTopic && config.mqttTopic !== elements.mqttTopic.value) {
             elements.mqttTopic.value = config.mqttTopic;
+            handleTopicChange(config.mqttTopic);
         }
 
         // Load map rotation
@@ -1173,15 +1373,12 @@ function resetZones() {
 // Event Listeners
 // ============================================================================
 
-// Connect Button - toggle connect/disconnect
-if (elements.connectBtn) {
-    elements.connectBtn.addEventListener('click', () => {
-        if (state.mqtt.connected) {
-            disconnectMQTT();
-        } else {
-            saveCredentials(); // Save credentials when connecting
-            connectMQTT();
-        }
+// Note: Connect button removed - MQTT auto-connects on start
+
+// MQTT Topic Change - auto-reconnect when topic changes
+if (elements.mqttTopic) {
+    elements.mqttTopic.addEventListener('change', (e) => {
+        handleTopicChange(e.target.value);
     });
 }
 
@@ -1271,6 +1468,12 @@ if (elements.moveShapeBtn) {
 if (elements.rotateShapeBtn) {
     elements.rotateShapeBtn.addEventListener('click', rotateSelectedShape);
 }
+if (elements.increaseSizeBtn) {
+    elements.increaseSizeBtn.addEventListener('click', () => resizeSelectedShape(1.1));
+}
+if (elements.decreaseSizeBtn) {
+    elements.decreaseSizeBtn.addEventListener('click', () => resizeSelectedShape(0.9));
+}
 if (elements.deleteShapeBtn) {
     elements.deleteShapeBtn.addEventListener('click', deleteSelectedShape);
 }
@@ -1324,9 +1527,11 @@ elements.zoneCards.forEach((card, index) => {
 // Initialization
 // ============================================================================
 
-function init() {
+async function init() {
+    // Fetch addon config (MQTT connection settings)
+    await fetchAddonConfig();
 
-    // Load saved credentials from localStorage
+    // Load saved room name from localStorage
     loadCredentials();
 
     // Populate sensor selector with saved rooms
@@ -1354,8 +1559,12 @@ function init() {
     }
     animate();
 
-    // User must click Connect button to connect
+    // Auto-connect to MQTT if we have a topic configured
     updateConnectionStatus(false);
+    const topic = elements.mqttTopic.value;
+    if (topic && topic.trim()) {
+        connectMQTT();
+    }
 }
 
 // Start application

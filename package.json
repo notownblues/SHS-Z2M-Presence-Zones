@@ -1,6 +1,6 @@
 {
   "name": "shs-z2m-presence-zones",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Web-based zone configurator for SHS01 mmWave presence sensor",
   "type": "module",
   "scripts": {
