@@ -16,31 +16,12 @@ export class RadarCanvas {
             Y_MAX: 6000    // 6m forward
         };
 
-        // Visual settings
-        this.COLORS = {
-            background: '#21262d',
-            grid: '#30363d',
-            gridLabel: '#484f58',
-            sensor: '#58a6ff',
-            target: '#3fb950',
-            targetInactive: '#6e7681',
-            zone1: 'rgba(88, 166, 255, 0.2)',
-            zone1Border: '#58a6ff',
-            zone2: 'rgba(210, 153, 34, 0.2)',
-            zone2Border: '#d29922',
-            zone3: 'rgba(248, 81, 73, 0.2)',
-            zone3Border: '#f85149',
-            preview: 'rgba(255, 255, 255, 0.3)',
-            previewBorder: '#ffffff',
-            selection: '#58a6ff',
-            handle: '#ffffff',
-            furniture: 'rgba(139, 148, 158, 0.5)',
-            furnitureBorder: '#8b949e',
-            entrance: '#d29922',
-            edge: 'rgba(80, 80, 80, 0.7)',
-            edgeBorder: '#6e7681',
-            edgePreview: 'rgba(80, 80, 80, 0.4)'
-        };
+        // Visual settings - will be updated based on theme
+        this.updateColors();
+
+        // Watch for theme changes
+        this.themeObserver = new MutationObserver(() => this.updateColors());
+        this.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
         // Drawing state
         this.drawingPreview = null;
@@ -75,6 +56,65 @@ export class RadarCanvas {
         // Pixels per millimeter
         this.scaleX = this.width / (this.SENSOR_RANGE.X_MAX - this.SENSOR_RANGE.X_MIN);
         this.scaleY = this.height / (this.SENSOR_RANGE.Y_MAX - this.SENSOR_RANGE.Y_MIN);
+    }
+
+    /**
+     * Update colors based on current theme
+     */
+    updateColors() {
+        const isLightMode = document.documentElement.getAttribute('data-theme') === 'light';
+
+        if (isLightMode) {
+            this.COLORS = {
+                background: '#f6f8fa',
+                grid: '#d0d7de',
+                gridLabel: '#656d76',
+                sensor: '#0969da',
+                target: '#1a7f37',
+                targetInactive: '#8c959f',
+                zone1: 'rgba(9, 105, 218, 0.15)',
+                zone1Border: '#0969da',
+                zone2: 'rgba(154, 103, 0, 0.15)',
+                zone2Border: '#9a6700',
+                zone3: 'rgba(207, 34, 46, 0.15)',
+                zone3Border: '#cf222e',
+                preview: 'rgba(0, 0, 0, 0.2)',
+                previewBorder: '#1f2328',
+                selection: '#0969da',
+                handle: '#1f2328',
+                furniture: 'rgba(101, 109, 118, 0.4)',
+                furnitureBorder: '#656d76',
+                entrance: '#9a6700',
+                edge: 'rgba(140, 149, 159, 0.5)',
+                edgeBorder: '#8c959f',
+                edgePreview: 'rgba(140, 149, 159, 0.3)'
+            };
+        } else {
+            this.COLORS = {
+                background: '#21262d',
+                grid: '#30363d',
+                gridLabel: '#484f58',
+                sensor: '#58a6ff',
+                target: '#3fb950',
+                targetInactive: '#6e7681',
+                zone1: 'rgba(88, 166, 255, 0.2)',
+                zone1Border: '#58a6ff',
+                zone2: 'rgba(210, 153, 34, 0.2)',
+                zone2Border: '#d29922',
+                zone3: 'rgba(248, 81, 73, 0.2)',
+                zone3Border: '#f85149',
+                preview: 'rgba(255, 255, 255, 0.3)',
+                previewBorder: '#ffffff',
+                selection: '#58a6ff',
+                handle: '#ffffff',
+                furniture: 'rgba(139, 148, 158, 0.5)',
+                furnitureBorder: '#8b949e',
+                entrance: '#d29922',
+                edge: 'rgba(80, 80, 80, 0.7)',
+                edgeBorder: '#6e7681',
+                edgePreview: 'rgba(80, 80, 80, 0.4)'
+            };
+        }
     }
 
     /**
@@ -331,13 +371,19 @@ export class RadarCanvas {
         // Draw based on furniture type with simpler, cleaner icons
         switch (furniture.type) {
             case 'table':
-            case 'desk':
-            case 'bedside-table':
                 this.drawSimpleTable(-halfW, -halfH, halfW * 2, halfH * 2);
                 break;
+            case 'desk':
+                this.drawSimpleDesk(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'bedside-table':
+                this.drawSimpleBedsideTable(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
             case 'chair':
-            case 'dining-chair':
                 this.drawSimpleChair(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'dining-chair':
+                this.drawSimpleDiningChair(-halfW, -halfH, halfW * 2, halfH * 2);
                 break;
             case 'bed':
                 this.drawSimpleBed(-halfW, -halfH, halfW * 2, halfH * 2);
@@ -349,9 +395,13 @@ export class RadarCanvas {
                 this.drawSimplePlant(0, 0, Math.min(halfW, halfH));
                 break;
             case 'cabinet':
-            case 'drawers':
-            case 'wardrobe':
                 this.drawSimpleCabinet(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'drawers':
+                this.drawSimpleDrawers(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'wardrobe':
+                this.drawSimpleWardrobe(-halfW, -halfH, halfW * 2, halfH * 2);
                 break;
             case 'lamp':
                 this.drawSimpleLamp(-halfW, -halfH, halfW * 2, halfH * 2);
@@ -450,6 +500,74 @@ export class RadarCanvas {
         this.ctx.stroke();
     }
 
+    drawSimpleDesk(x, y, w, h) {
+        const r = 2;
+
+        // Desk body (darker wood)
+        this.ctx.fillStyle = '#5D4037';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Desk surface (lighter)
+        this.ctx.fillStyle = '#8D6E63';
+        this.roundRect(x + 2, y + 2, w - 4, h - 4, r);
+        this.ctx.fill();
+
+        // Drawer section (left side)
+        this.ctx.fillStyle = '#6D4C41';
+        this.roundRect(x + 4, y + h * 0.4, w * 0.35, h * 0.55, 1);
+        this.ctx.fill();
+
+        // Drawer handle
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.22, y + h * 0.67, 2, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Computer/monitor area (right side)
+        this.ctx.fillStyle = '#4A4A4A';
+        this.roundRect(x + w * 0.55, y + h * 0.15, w * 0.35, h * 0.25, 1);
+        this.ctx.fill();
+
+        // Screen
+        this.ctx.fillStyle = '#6B6B6B';
+        this.roundRect(x + w * 0.58, y + h * 0.2, w * 0.28, h * 0.15, 1);
+        this.ctx.fill();
+    }
+
+    drawSimpleBedsideTable(x, y, w, h) {
+        const r = 3;
+
+        // Table frame
+        this.ctx.fillStyle = '#6B4423';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Table surface
+        this.ctx.fillStyle = '#8B5A2B';
+        this.roundRect(x + 2, y + 2, w - 4, h - 4, r - 1);
+        this.ctx.fill();
+
+        // Drawer divider line
+        this.ctx.strokeStyle = '#5D4037';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 2, y + h / 2);
+        this.ctx.lineTo(x + w - 2, y + h / 2);
+        this.ctx.stroke();
+
+        // Top drawer handle
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.beginPath();
+        this.ctx.arc(x + w / 2, y + h * 0.25, 2.5, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Bottom drawer handle
+        this.ctx.beginPath();
+        this.ctx.arc(x + w / 2, y + h * 0.75, 2.5, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+
     drawSimpleChair(x, y, w, h) {
         const cx = x + w / 2;
         const cy = y + h / 2;
@@ -486,6 +604,36 @@ export class RadarCanvas {
         this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
         this.ctx.lineWidth = 1.5;
         this.roundRect(x - w * 0.05, y, w * 1.1, h * 0.85, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleDiningChair(x, y, w, h) {
+        const r = 2;
+
+        // Chair back (top part)
+        this.ctx.fillStyle = '#8B5A2B';
+        this.roundRect(x + w * 0.15, y, w * 0.7, h * 0.2, r);
+        this.ctx.fill();
+
+        // Chair back vertical supports
+        this.ctx.fillStyle = '#D4A574';
+        this.roundRect(x + w * 0.2, y + h * 0.2, w * 0.6, h * 0.45, r);
+        this.ctx.fill();
+
+        // Chair seat
+        this.ctx.fillStyle = '#8B5A2B';
+        this.roundRect(x + w * 0.05, y + h * 0.65, w * 0.9, h * 0.3, r);
+        this.ctx.fill();
+
+        // Seat cushion
+        this.ctx.fillStyle = '#C4956A';
+        this.roundRect(x + w * 0.15, y + h * 0.72, w * 0.7, h * 0.18, r);
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        this.ctx.lineWidth = 1;
+        this.roundRect(x + w * 0.05, y, w * 0.9, h * 0.95, r);
         this.ctx.stroke();
     }
 
@@ -673,6 +821,76 @@ export class RadarCanvas {
         this.ctx.lineWidth = 1.5;
         this.roundRect(x, y, w, h, r);
         this.ctx.stroke();
+    }
+
+    drawSimpleDrawers(x, y, w, h) {
+        const r = 3;
+
+        // Outer frame
+        this.ctx.fillStyle = '#5D4037';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Three drawer sections
+        const drawerHeight = (h - 8) / 3;
+        const gap = 2;
+
+        for (let i = 0; i < 3; i++) {
+            const drawerY = y + 2 + i * (drawerHeight + gap);
+
+            // Drawer face
+            this.ctx.fillStyle = '#8D6E63';
+            this.roundRect(x + 2, drawerY, w - 4, drawerHeight, 1);
+            this.ctx.fill();
+
+            // Drawer handle (silver/chrome)
+            this.ctx.fillStyle = '#C0C0C0';
+            this.ctx.beginPath();
+            this.ctx.arc(x + w / 2, drawerY + drawerHeight / 2, 2, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        this.ctx.lineWidth = 1;
+        this.roundRect(x, y, w, h, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleWardrobe(x, y, w, h) {
+        const r = 3;
+
+        // Outer frame (dark wood)
+        this.ctx.fillStyle = '#4A3228';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Left door
+        this.ctx.fillStyle = '#6B4423';
+        this.roundRect(x + 2, y + 2, w / 2 - 3, h - 4, 1);
+        this.ctx.fill();
+
+        // Right door
+        this.ctx.fillStyle = '#6B4423';
+        this.roundRect(x + w / 2 + 1, y + 2, w / 2 - 3, h - 4, 1);
+        this.ctx.fill();
+
+        // Center divider line
+        this.ctx.strokeStyle = '#3D2817';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + w / 2, y + 2);
+        this.ctx.lineTo(x + w / 2, y + h - 2);
+        this.ctx.stroke();
+
+        // Door handles (silver/chrome)
+        this.ctx.fillStyle = '#C0C0C0';
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.4, y + h / 2, 2.5, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.6, y + h / 2, 2.5, 0, Math.PI * 2);
+        this.ctx.fill();
     }
 
     drawSimpleLamp(x, y, w, h) {
