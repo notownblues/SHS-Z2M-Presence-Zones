@@ -1,4 +1,3 @@
-import mqtt from 'mqtt';
 import { RadarCanvas } from './radarCanvas.js';
 import { ZoneManager } from './zoneManager.js';
 import { StorageManager } from './storageManager.js';
@@ -7,8 +6,8 @@ import { DrawingManager } from './drawingManager.js';
 // LocalStorage key for saving room name
 const STORAGE_KEY = 'ld2450_zone_config_settings';
 
-// Addon config loaded from config.json
-let addonConfig = null;
+// WebSocket connection to backend server
+let wsConnection = null;
 
 // ============================================================================
 // Application State
@@ -637,152 +636,108 @@ function updateZoneCards() {
 }
 
 // ============================================================================
-// Addon Config Functions
+// WebSocket Connection to Backend Server
 // ============================================================================
 
 /**
- * Fetch addon configuration from config.json
+ * Connect to backend WebSocket server
  */
-async function fetchAddonConfig() {
-    try {
-        const response = await fetch('/config.json');
-        if (response.ok) {
-            addonConfig = await response.json();
-            console.log('Loaded addon config:', addonConfig);
-            return true;
-        } else {
-            console.warn('Config.json returned status:', response.status);
-        }
-    } catch (error) {
-        console.warn('Could not load addon config, using defaults:', error);
-    }
+function connectWebSocket() {
+    // Build WebSocket URL (same host, /ws path)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-    // Default config for development (localhost)
-    addonConfig = {
-        mqtt: {
-            host: 'localhost',
-            wsPort: 9001,
-            username: '',
-            password: ''
+    console.log('Connecting to backend WebSocket:', wsUrl);
+    elements.mqttStatusText.textContent = 'Connecting...';
+    elements.mqttStatus.classList.remove('online');
+
+    wsConnection = new WebSocket(wsUrl);
+
+    wsConnection.onopen = () => {
+        console.log('WebSocket connected to backend');
+
+        // Subscribe to MQTT topic if one is configured
+        const topic = elements.mqttTopic.value;
+        if (topic && topic.trim()) {
+            wsConnection.send(JSON.stringify({
+                type: 'subscribe',
+                topic: topic
+            }));
         }
     };
-    console.log('Using default addon config:', addonConfig);
+
+    wsConnection.onmessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            handleBackendMessage(message);
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+        }
+    };
+
+    wsConnection.onclose = () => {
+        console.log('WebSocket disconnected');
+        state.mqtt.connected = false;
+        updateConnectionStatus(false);
+
+        // Reconnect after delay
+        setTimeout(() => {
+            if (!wsConnection || wsConnection.readyState === WebSocket.CLOSED) {
+                connectWebSocket();
+            }
+        }, 3000);
+    };
+
+    wsConnection.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        updateConnectionStatus(false, 'WebSocket error');
+    };
+}
+
+/**
+ * Handle messages from backend server
+ */
+function handleBackendMessage(message) {
+    switch (message.type) {
+        case 'mqtt_status':
+            state.mqtt.connected = message.connected;
+            if (message.connected) {
+                updateConnectionStatus(true);
+                if (elements.positionReportingBtn) {
+                    elements.positionReportingBtn.disabled = false;
+                }
+            } else {
+                updateConnectionStatus(false, message.error);
+                if (elements.positionReportingBtn) {
+                    elements.positionReportingBtn.disabled = true;
+                }
+            }
+            break;
+
+        case 'mqtt_message':
+            handleMQTTMessage(message.topic, message.data);
+            break;
+
+        case 'config':
+            console.log('Received config from backend:', message.mqtt);
+            break;
+    }
+}
+
+/**
+ * Send message to backend via WebSocket
+ */
+function sendToBackend(message) {
+    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+        wsConnection.send(JSON.stringify(message));
+        return true;
+    }
+    console.error('WebSocket not connected');
     return false;
 }
 
-// ============================================================================
-// MQTT Functions
-// ============================================================================
-
-function connectMQTT() {
-    if (!addonConfig) {
-        console.error('Addon config not loaded');
-        return;
-    }
-
-    // Build broker URL from addon config
-    const broker = `ws://${addonConfig.mqtt.host}:${addonConfig.mqtt.wsPort}`;
-    const username = addonConfig.mqtt.username || '';
-    const password = addonConfig.mqtt.password || '';
-    const baseTopic = elements.mqttTopic.value;
-
-    // Update state
-    state.mqtt.broker = broker;
-    state.mqtt.username = username;
-    state.mqtt.password = password;
-    state.mqtt.baseTopic = baseTopic;
-
-    // Create MQTT client options
-    const options = {
-        clientId: `ld2450-configurator-${Math.random().toString(16).slice(2, 8)}`,
-        clean: true,
-        reconnectPeriod: 5000
-    };
-
-    if (username) {
-        options.username = username;
-        options.password = password;
-    }
-
-    console.log('Connecting to MQTT broker:', broker);
-    elements.mqttStatusText.textContent = 'Connecting to MQTT...';
-    elements.mqttStatus.classList.remove('online');
-
-    // Connect to broker
-    state.mqtt.client = mqtt.connect(broker, options);
-
-    // Connection events
-    state.mqtt.client.on('connect', () => {
-        console.log('Connected to MQTT broker');
-        state.mqtt.connected = true;
-        updateConnectionStatus(true);
-
-        // Subscribe to sensor data topic (occupancy, zones, target count, position data)
-        const topic = `${baseTopic}`;
-        state.mqtt.client.subscribe(topic, (err) => {
-            if (err) {
-                console.error('Failed to subscribe to sensor topic:', err);
-            } else {
-                console.log('Subscribed to sensor data:', topic);
-                // Request current position_reporting state from Z2M
-                const getTopic = `${baseTopic}/get`;
-                state.mqtt.client.publish(getTopic, JSON.stringify({ position_reporting: '' }), (pubErr) => {
-                    if (pubErr) {
-                        console.error('Failed to request position_reporting state:', pubErr);
-                    } else {
-                        console.log('Requested position_reporting state from:', getTopic);
-                    }
-                });
-            }
-        });
-
-        // Enable position reporting button
-        if (elements.positionReportingBtn) {
-            elements.positionReportingBtn.disabled = false;
-        }
-    });
-
-    state.mqtt.client.on('error', (error) => {
-        console.error('MQTT error:', error);
-        const errorMsg = error.message || error.toString();
-        updateConnectionStatus(false, errorMsg);
-    });
-
-    state.mqtt.client.on('close', () => {
-        console.log('Disconnected from MQTT broker');
-        state.mqtt.connected = false;
-        updateConnectionStatus(false);
-    });
-
-    state.mqtt.client.on('offline', () => {
-        console.log('MQTT client offline');
-        elements.mqttStatusText.textContent = 'MQTT offline - reconnecting...';
-    });
-
-    state.mqtt.client.on('reconnect', () => {
-        console.log('MQTT reconnecting...');
-        elements.mqttStatusText.textContent = 'Reconnecting to MQTT...';
-    });
-
-    state.mqtt.client.on('message', handleMQTTMessage);
-}
-
-function disconnectMQTT() {
-    if (state.mqtt.client) {
-        state.mqtt.client.end();
-        state.mqtt.client = null;
-        state.mqtt.connected = false;
-        updateConnectionStatus(false);
-    }
-
-    // Disable position reporting button
-    if (elements.positionReportingBtn) {
-        elements.positionReportingBtn.disabled = true;
-    }
-}
-
 /**
- * Handle MQTT topic change - resubscribe to new topic
+ * Handle MQTT topic change - tell backend to subscribe to new topic
  */
 function handleTopicChange(newTopic) {
     if (!newTopic || !newTopic.trim()) {
@@ -794,33 +749,12 @@ function handleTopicChange(newTopic) {
     // Update state
     state.mqtt.baseTopic = newTopic;
 
-    // If connected, resubscribe to new topic
-    if (state.mqtt.connected && state.mqtt.client) {
-        // Unsubscribe from old topic
+    // Tell backend to unsubscribe from old topic and subscribe to new one
+    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
         if (oldTopic) {
-            state.mqtt.client.unsubscribe(oldTopic, (err) => {
-                if (err) {
-                    console.warn('Failed to unsubscribe from old topic:', err);
-                } else {
-                    console.log('Unsubscribed from:', oldTopic);
-                }
-            });
+            sendToBackend({ type: 'unsubscribe', topic: oldTopic });
         }
-
-        // Subscribe to new topic
-        state.mqtt.client.subscribe(newTopic, (err) => {
-            if (err) {
-                console.error('Failed to subscribe to new topic:', err);
-            } else {
-                console.log('Subscribed to new topic:', newTopic);
-                // Request current position_reporting state from Z2M
-                const getTopic = `${newTopic}/get`;
-                state.mqtt.client.publish(getTopic, JSON.stringify({ position_reporting: '' }));
-            }
-        });
-    } else if (newTopic.trim()) {
-        // Not connected yet, try to connect
-        connectMQTT();
+        sendToBackend({ type: 'subscribe', topic: newTopic });
     }
 
     // Save to localStorage
@@ -831,9 +765,9 @@ function handleTopicChange(newTopic) {
 // MQTT Message Handling
 // ============================================================================
 
-function handleMQTTMessage(topic, message) {
+function handleMQTTMessage(topic, data) {
     try {
-        const data = JSON.parse(message.toString());
+        // Data is already parsed by the backend
 
         // Update target count from Zigbee2MQTT
         if (data.ld2450_target_count !== undefined) {
@@ -936,7 +870,7 @@ function updateTargetsFromPositions() {
 }
 
 function togglePositionReporting() {
-    if (!state.mqtt.connected || !state.mqtt.client) {
+    if (!state.mqtt.connected) {
         alert('Not connected to MQTT broker');
         return;
     }
@@ -944,24 +878,25 @@ function togglePositionReporting() {
     // Toggle the state
     const newState = !state.sensor.positionReporting;
 
-    // Publish to set topic
-    const config = { position_reporting: newState };
+    // Publish to set topic via backend
     const topic = `${state.mqtt.baseTopic}/set`;
-
-    state.mqtt.client.publish(topic, JSON.stringify(config), { retain: false }, (err) => {
-        if (err) {
-            console.error('Failed to toggle position reporting:', err);
-            alert('Failed to toggle position reporting');
-        } else {
-            // Optimistically update local state and UI
-            state.sensor.positionReporting = newState;
-            updatePositionReportingButton();
-        }
+    const success = sendToBackend({
+        type: 'publish',
+        topic: topic,
+        payload: { position_reporting: newState }
     });
+
+    if (success) {
+        // Optimistically update local state and UI
+        state.sensor.positionReporting = newState;
+        updatePositionReportingButton();
+    } else {
+        alert('Failed to toggle position reporting');
+    }
 }
 
 function publishZoneConfig() {
-    if (!state.mqtt.connected || !state.mqtt.client) {
+    if (!state.mqtt.connected) {
         alert('Not connected to MQTT broker');
         return;
     }
@@ -1011,28 +946,32 @@ function publishZoneConfig() {
         }
     };
 
-    // Publish to set topic
+    // Publish to set topic via backend
     const topic = `${state.mqtt.baseTopic}/set`;
     console.log('[ZONE CONFIG] Publishing to:', topic);
     console.log('[ZONE CONFIG] Payload:', JSON.stringify(config, null, 2));
-    state.mqtt.client.publish(topic, JSON.stringify(config), { retain: false }, (err) => {
-        if (err) {
-            console.error('Failed to publish zone config:', err);
-            alert('Failed to apply zone configuration');
-        } else {
-            const zoneModeNames = ['Off', 'Include', 'Exclude'];
-            const zoneDescriptions = enabledZones.map((_, i) => {
-                const zoneNum = state.zones.zones.findIndex(z => z === enabledZones[i]) + 1;
-                return `Zone ${zoneNum}`;
-            }).join(', ');
-            alert(
-                `Zone configuration applied!\n\n` +
-                `Mode: ${zoneModeNames[state.zones.type]}\n` +
-                `Enabled: ${zoneDescriptions || 'None'}\n\n` +
-                `Check serial output for firmware confirmation.`
-            );
-        }
+
+    const success = sendToBackend({
+        type: 'publish',
+        topic: topic,
+        payload: config
     });
+
+    if (success) {
+        const zoneModeNames = ['Off', 'Include', 'Exclude'];
+        const zoneDescriptions = enabledZones.map((_, i) => {
+            const zoneNum = state.zones.zones.findIndex(z => z === enabledZones[i]) + 1;
+            return `Zone ${zoneNum}`;
+        }).join(', ');
+        alert(
+            `Zone configuration applied!\n\n` +
+            `Mode: ${zoneModeNames[state.zones.type]}\n` +
+            `Enabled: ${zoneDescriptions || 'None'}\n\n` +
+            `Check serial output for firmware confirmation.`
+        );
+    } else {
+        alert('Failed to apply zone configuration');
+    }
 }
 
 // ============================================================================
@@ -1541,9 +1480,6 @@ elements.zoneCards.forEach((card, index) => {
 // ============================================================================
 
 async function init() {
-    // Fetch addon config (MQTT connection settings)
-    await fetchAddonConfig();
-
     // Load saved room name from localStorage
     loadCredentials();
 
@@ -1572,11 +1508,12 @@ async function init() {
     }
     animate();
 
-    // Auto-connect to MQTT if we have a topic configured
+    // Connect to backend WebSocket server
+    connectWebSocket();
+
+    // Update UI based on topic state
     const topic = elements.mqttTopic.value;
-    if (topic && topic.trim()) {
-        connectMQTT();
-    } else {
+    if (!topic || !topic.trim()) {
         elements.mqttStatusText.textContent = 'Enter MQTT topic to connect';
         elements.mqttStatus.classList.remove('online');
     }
