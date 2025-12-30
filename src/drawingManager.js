@@ -1385,13 +1385,30 @@ export class DrawingManager {
      */
     getFurnitureDefaultSize(type) {
         const sizes = {
-            table: { width: 1200, height: 800 },
-            chair: { width: 600, height: 600 },
-            bed: { width: 2000, height: 1500 },
+            // Seating
+            chair: { width: 700, height: 700 },
+            'dining-chair': { width: 450, height: 450 },
             sofa: { width: 1800, height: 800 },
-            plant: { width: 400, height: 400 },
+            bed: { width: 2000, height: 1500 },
+            // Tables
+            table: { width: 1200, height: 800 },
+            desk: { width: 1400, height: 700 },
+            'bedside-table': { width: 500, height: 500 },
+            // Storage
             cabinet: { width: 800, height: 500 },
-            lamp: { width: 350, height: 350 }
+            drawers: { width: 800, height: 500 },
+            wardrobe: { width: 1200, height: 600 },
+            // Electronics
+            tv: { width: 1400, height: 200 },
+            speaker: { width: 400, height: 600 },
+            // Appliances
+            fridge: { width: 700, height: 700 },
+            radiator: { width: 1000, height: 200 },
+            fan: { width: 500, height: 500 },
+            // Fixtures
+            window: { width: 1200, height: 200 },
+            lamp: { width: 350, height: 350 },
+            plant: { width: 400, height: 400 }
         };
         return sizes[type] || { width: 500, height: 500 };
     }

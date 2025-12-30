@@ -14,11 +14,232 @@
                 <span class="status-indicator" id="mqttStatus"></span>
                 <span id="mqttStatusText">Disconnected from MQTT</span>
             </div>
+            <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle Dark/Light Mode">
+                <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"/>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+                <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+            </button>
         </header>
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Left Panel: Visualization -->
+            <!-- Left Sidebar: Furniture/Objects -->
+            <aside class="furniture-sidebar" id="furnitureSidebar">
+                <h3 class="sidebar-title">Objects</h3>
+                <div class="furniture-grid">
+                    <!-- Seating -->
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="chair" title="Armchair">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="10" y="4" width="28" height="14" rx="4" fill="#C05A38"/>
+                            <rect x="6" y="12" width="36" height="24" rx="4" fill="#E07850"/>
+                            <rect x="12" y="16" width="24" height="16" rx="2" fill="#F09070"/>
+                            <rect x="2" y="10" width="8" height="22" rx="2" fill="#C05A38"/>
+                            <rect x="38" y="10" width="8" height="22" rx="2" fill="#C05A38"/>
+                        </svg>
+                        <span>Armchair</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="dining-chair" title="Dining Chair">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="14" y="4" width="20" height="8" rx="2" fill="#8B5A2B"/>
+                            <rect x="16" y="12" width="16" height="20" rx="2" fill="#D4A574"/>
+                            <rect x="12" y="32" width="24" height="12" rx="2" fill="#8B5A2B"/>
+                            <rect x="16" y="36" width="16" height="6" rx="1" fill="#C4956A"/>
+                        </svg>
+                        <span>Dining Chair</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="sofa" title="Sofa">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="6" y="4" width="36" height="12" rx="4" fill="#3A5A8A"/>
+                            <rect x="4" y="10" width="40" height="28" rx="4" fill="#4A6FA5"/>
+                            <rect x="8" y="14" width="14" height="20" rx="2" fill="#6090C0"/>
+                            <rect x="26" y="14" width="14" height="20" rx="2" fill="#6090C0"/>
+                            <rect x="2" y="8" width="6" height="28" rx="2" fill="#3A5A8A"/>
+                            <rect x="40" y="8" width="6" height="28" rx="2" fill="#3A5A8A"/>
+                        </svg>
+                        <span>Sofa</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="bed" title="Bed">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="4" y="4" width="40" height="40" rx="4" fill="#5D4037"/>
+                            <rect x="8" y="8" width="32" height="32" rx="2" fill="#E8E8E8"/>
+                            <rect x="4" y="4" width="8" height="40" rx="2" fill="#4A3228"/>
+                            <rect x="14" y="10" width="10" height="12" rx="2" fill="#F5F0E6"/>
+                            <rect x="14" y="26" width="10" height="12" rx="2" fill="#F5F0E6"/>
+                        </svg>
+                        <span>Bed</span>
+                    </button>
+
+                    <!-- Tables -->
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="table" title="Table">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="4" y="4" width="40" height="40" rx="4" fill="#6B4423"/>
+                            <rect x="8" y="8" width="32" height="32" rx="2" fill="#D4A574"/>
+                            <line x1="10" y1="16" x2="38" y2="16" stroke="#8B5A2B" stroke-width="1.5" opacity="0.4"/>
+                            <line x1="10" y1="24" x2="38" y2="24" stroke="#8B5A2B" stroke-width="1.5" opacity="0.4"/>
+                            <line x1="10" y1="32" x2="38" y2="32" stroke="#8B5A2B" stroke-width="1.5" opacity="0.4"/>
+                        </svg>
+                        <span>Table</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="desk" title="Desk">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="4" y="8" width="40" height="32" rx="2" fill="#5D4037"/>
+                            <rect x="6" y="10" width="36" height="28" rx="1" fill="#8D6E63"/>
+                            <rect x="8" y="22" width="14" height="14" rx="1" fill="#6D4C41"/>
+                            <circle cx="18" cy="29" r="1.5" fill="#FFD700"/>
+                            <rect x="28" y="12" width="12" height="8" rx="1" fill="#4A4A4A"/>
+                            <rect x="30" y="14" width="8" height="4" fill="#6B6B6B"/>
+                        </svg>
+                        <span>Desk</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="bedside-table" title="Bedside Table">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="8" y="8" width="32" height="32" rx="3" fill="#6B4423"/>
+                            <rect x="10" y="10" width="28" height="28" rx="2" fill="#8B5A2B"/>
+                            <line x1="10" y1="24" x2="38" y2="24" stroke="#5D4037" stroke-width="2"/>
+                            <circle cx="24" cy="17" r="2" fill="#FFD700"/>
+                            <circle cx="24" cy="31" r="2" fill="#FFD700"/>
+                        </svg>
+                        <span>Bedside Table</span>
+                    </button>
+
+                    <!-- Storage -->
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="cabinet" title="Cabinet">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="4" y="4" width="40" height="40" rx="4" fill="#5D4037"/>
+                            <rect x="8" y="8" width="32" height="32" rx="2" fill="#8D6E63"/>
+                            <line x1="8" y1="24" x2="40" y2="24" stroke="#4A3228" stroke-width="3"/>
+                            <line x1="24" y1="25" x2="24" y2="38" stroke="#4A3228" stroke-width="3"/>
+                            <circle cx="18" cy="32" r="2.5" fill="#FFD700"/>
+                            <circle cx="30" cy="32" r="2.5" fill="#FFD700"/>
+                            <circle cx="24" cy="16" r="2.5" fill="#FFD700"/>
+                        </svg>
+                        <span>Cabinet</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="drawers" title="Drawers">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="6" y="4" width="36" height="40" rx="3" fill="#5D4037"/>
+                            <rect x="8" y="6" width="32" height="10" rx="1" fill="#8D6E63"/>
+                            <rect x="8" y="18" width="32" height="10" rx="1" fill="#8D6E63"/>
+                            <rect x="8" y="30" width="32" height="10" rx="1" fill="#8D6E63"/>
+                            <circle cx="24" cy="11" r="1.5" fill="#C0C0C0"/>
+                            <circle cx="24" cy="23" r="1.5" fill="#C0C0C0"/>
+                            <circle cx="24" cy="35" r="1.5" fill="#C0C0C0"/>
+                        </svg>
+                        <span>Drawers</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="wardrobe" title="Wardrobe">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="4" y="4" width="40" height="40" rx="3" fill="#4A3228"/>
+                            <rect x="6" y="6" width="18" height="36" rx="1" fill="#6B4423"/>
+                            <rect x="24" y="6" width="18" height="36" rx="1" fill="#6B4423"/>
+                            <line x1="24" y1="6" x2="24" y2="42" stroke="#3D2817" stroke-width="2"/>
+                            <circle cx="20" cy="24" r="2" fill="#C0C0C0"/>
+                            <circle cx="28" cy="24" r="2" fill="#C0C0C0"/>
+                        </svg>
+                        <span>Wardrobe</span>
+                    </button>
+
+                    <!-- Electronics -->
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="tv" title="TV">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="4" y="10" width="40" height="24" rx="2" fill="#1a1a1a"/>
+                            <rect x="6" y="12" width="36" height="20" rx="1" fill="#2d2d2d"/>
+                            <rect x="8" y="14" width="32" height="16" fill="#4a90d9"/>
+                            <rect x="20" y="34" width="8" height="4" fill="#1a1a1a"/>
+                            <rect x="14" y="38" width="20" height="2" rx="1" fill="#1a1a1a"/>
+                        </svg>
+                        <span>TV</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="speaker" title="Speaker">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="12" y="4" width="24" height="40" rx="4" fill="#2d2d2d"/>
+                            <circle cx="24" cy="16" r="6" fill="#1a1a1a"/>
+                            <circle cx="24" cy="16" r="4" fill="#3d3d3d"/>
+                            <circle cx="24" cy="32" r="8" fill="#1a1a1a"/>
+                            <circle cx="24" cy="32" r="6" fill="#3d3d3d"/>
+                            <circle cx="24" cy="32" r="2" fill="#1a1a1a"/>
+                        </svg>
+                        <span>Speaker</span>
+                    </button>
+
+                    <!-- Appliances -->
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="fridge" title="Fridge">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="8" y="4" width="32" height="40" rx="3" fill="#E0E0E0"/>
+                            <rect x="10" y="6" width="28" height="14" rx="2" fill="#F5F5F5"/>
+                            <rect x="10" y="22" width="28" height="20" rx="2" fill="#F5F5F5"/>
+                            <line x1="10" y1="20" x2="38" y2="20" stroke="#BDBDBD" stroke-width="2"/>
+                            <rect x="32" y="10" width="3" height="6" rx="1" fill="#9E9E9E"/>
+                            <rect x="32" y="28" width="3" height="8" rx="1" fill="#9E9E9E"/>
+                        </svg>
+                        <span>Fridge</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="radiator" title="Radiator">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="4" y="12" width="40" height="24" rx="2" fill="#E0E0E0"/>
+                            <rect x="8" y="14" width="4" height="20" rx="1" fill="#BDBDBD"/>
+                            <rect x="14" y="14" width="4" height="20" rx="1" fill="#BDBDBD"/>
+                            <rect x="20" y="14" width="4" height="20" rx="1" fill="#BDBDBD"/>
+                            <rect x="26" y="14" width="4" height="20" rx="1" fill="#BDBDBD"/>
+                            <rect x="32" y="14" width="4" height="20" rx="1" fill="#BDBDBD"/>
+                            <rect x="38" y="14" width="4" height="20" rx="1" fill="#BDBDBD"/>
+                            <circle cx="40" cy="10" r="3" fill="#ef5350"/>
+                        </svg>
+                        <span>Radiator</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="fan" title="Fan">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <circle cx="24" cy="24" r="18" fill="#E8E8E8" stroke="#BDBDBD" stroke-width="2"/>
+                            <circle cx="24" cy="24" r="4" fill="#424242"/>
+                            <path d="M24 8 Q28 16 24 20 Q20 16 24 8" fill="#78909C"/>
+                            <path d="M24 40 Q20 32 24 28 Q28 32 24 40" fill="#78909C"/>
+                            <path d="M8 24 Q16 20 20 24 Q16 28 8 24" fill="#78909C"/>
+                            <path d="M40 24 Q32 28 28 24 Q32 20 40 24" fill="#78909C"/>
+                        </svg>
+                        <span>Fan</span>
+                    </button>
+
+                    <!-- Fixtures -->
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="window" title="Window">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <rect x="4" y="8" width="40" height="32" rx="2" fill="#5D4037"/>
+                            <rect x="6" y="10" width="17" height="13" fill="#87CEEB"/>
+                            <rect x="25" y="10" width="17" height="13" fill="#87CEEB"/>
+                            <rect x="6" y="25" width="17" height="13" fill="#87CEEB"/>
+                            <rect x="25" y="25" width="17" height="13" fill="#87CEEB"/>
+                            <line x1="24" y1="10" x2="24" y2="38" stroke="#5D4037" stroke-width="2"/>
+                            <line x1="6" y1="24" x2="42" y2="24" stroke="#5D4037" stroke-width="2"/>
+                        </svg>
+                        <span>Window</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="lamp" title="Lamp">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <circle cx="24" cy="24" r="18" fill="#FFFACD" opacity="0.3"/>
+                            <circle cx="24" cy="24" r="12" fill="#F0E68C"/>
+                            <circle cx="24" cy="24" r="8" fill="#FFFACD"/>
+                            <circle cx="24" cy="24" r="3" fill="#DAA520"/>
+                        </svg>
+                        <span>Lamp</span>
+                    </button>
+                    <button class="furniture-item" data-mode="place-furniture" data-furniture="plant" title="Plant">
+                        <svg width="32" height="32" viewBox="0 0 48 48">
+                            <circle cx="16" cy="28" r="8" fill="#388E3C"/>
+                            <circle cx="32" cy="28" r="8" fill="#388E3C"/>
+                            <circle cx="24" cy="20" r="10" fill="#4CAF50"/>
+                            <circle cx="18" cy="24" r="6" fill="#4CAF50"/>
+                            <circle cx="30" cy="24" r="6" fill="#4CAF50"/>
+                            <ellipse cx="24" cy="40" rx="8" ry="4" fill="#8B5A2B"/>
+                        </svg>
+                        <span>Plant</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Center Panel: Visualization -->
             <section class="visualization-panel">
                 <!-- Drawing Toolbar -->
                 <div class="drawing-toolbar">
@@ -41,85 +262,7 @@
                     </div>
                     <div class="toolbar-divider"></div>
                     <div class="toolbar-group">
-                        <button class="tool-btn" data-mode="place-furniture" data-furniture="table" title="Place Table">
-                            <!-- Table (top-down with wood grain) -->
-                            <svg width="18" height="18" viewBox="0 0 24 24">
-                                <rect x="2" y="2" width="20" height="20" rx="2" fill="#6B4423"/>
-                                <rect x="4" y="4" width="16" height="16" rx="1" fill="#D4A574"/>
-                                <line x1="5" y1="8" x2="19" y2="8" stroke="#8B5A2B" stroke-width="0.8" opacity="0.4"/>
-                                <line x1="5" y1="12" x2="19" y2="12" stroke="#8B5A2B" stroke-width="0.8" opacity="0.4"/>
-                                <line x1="5" y1="16" x2="19" y2="16" stroke="#8B5A2B" stroke-width="0.8" opacity="0.4"/>
-                                <rect x="8" y="10" width="8" height="4" rx="1" fill="#6B4423" opacity="0.2"/>
-                            </svg>
-                        </button>
-                        <button class="tool-btn" data-mode="place-furniture" data-furniture="chair" title="Place Chair">
-                            <!-- Armchair (top-down) -->
-                            <svg width="18" height="18" viewBox="0 0 24 24">
-                                <rect x="5" y="2" width="14" height="7" rx="2" fill="#C05A38"/>
-                                <rect x="3" y="6" width="18" height="12" rx="2" fill="#E07850"/>
-                                <rect x="6" y="8" width="12" height="8" rx="1" fill="#F09070"/>
-                                <rect x="1" y="5" width="4" height="11" rx="1" fill="#C05A38"/>
-                                <rect x="19" y="5" width="4" height="11" rx="1" fill="#C05A38"/>
-                            </svg>
-                        </button>
-                        <button class="tool-btn" data-mode="place-furniture" data-furniture="bed" title="Place Bed">
-                            <!-- Bed (top-down) -->
-                            <svg width="18" height="18" viewBox="0 0 24 24">
-                                <rect x="2" y="2" width="20" height="20" rx="2" fill="#5D4037"/>
-                                <rect x="4" y="4" width="16" height="16" rx="1" fill="#E8E8E8"/>
-                                <rect x="2" y="2" width="4" height="20" rx="1" fill="#4A3228"/>
-                                <rect x="7" y="5" width="5" height="6" rx="1" fill="#F5F0E6"/>
-                                <rect x="7" y="13" width="5" height="6" rx="1" fill="#F5F0E6"/>
-                            </svg>
-                        </button>
-                        <button class="tool-btn" data-mode="place-furniture" data-furniture="sofa" title="Place Sofa">
-                            <!-- Sofa (top-down) -->
-                            <svg width="18" height="18" viewBox="0 0 24 24">
-                                <rect x="3" y="2" width="18" height="6" rx="2" fill="#3A5A8A"/>
-                                <rect x="2" y="5" width="20" height="14" rx="2" fill="#4A6FA5"/>
-                                <rect x="4" y="7" width="7" height="10" rx="1" fill="#6090C0"/>
-                                <rect x="13" y="7" width="7" height="10" rx="1" fill="#6090C0"/>
-                                <rect x="1" y="4" width="3" height="14" rx="1" fill="#3A5A8A"/>
-                                <rect x="20" y="4" width="3" height="14" rx="1" fill="#3A5A8A"/>
-                            </svg>
-                        </button>
-                        <button class="tool-btn" data-mode="place-furniture" data-furniture="cabinet" title="Place Cabinet">
-                            <!-- Cabinet (top-down) -->
-                            <svg width="18" height="18" viewBox="0 0 24 24">
-                                <rect x="2" y="2" width="20" height="20" rx="2" fill="#5D4037"/>
-                                <rect x="4" y="4" width="16" height="16" rx="1" fill="#8D6E63"/>
-                                <line x1="4" y1="12" x2="20" y2="12" stroke="#4A3228" stroke-width="2"/>
-                                <line x1="12" y1="13" x2="12" y2="19" stroke="#4A3228" stroke-width="2"/>
-                                <circle cx="9" cy="16" r="1.5" fill="#FFD700"/>
-                                <circle cx="15" cy="16" r="1.5" fill="#FFD700"/>
-                                <circle cx="12" cy="8" r="1.5" fill="#FFD700"/>
-                            </svg>
-                        </button>
-                        <button class="tool-btn" data-mode="place-furniture" data-furniture="lamp" title="Place Lamp">
-                            <!-- Lamp (top-down with glow) -->
-                            <svg width="18" height="18" viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="10" fill="#FFFACD" opacity="0.3"/>
-                                <circle cx="12" cy="12" r="7" fill="#F0E68C"/>
-                                <circle cx="12" cy="12" r="5" fill="#FFFACD"/>
-                                <circle cx="12" cy="12" r="2" fill="#DAA520"/>
-                            </svg>
-                        </button>
-                        <button class="tool-btn" data-mode="place-furniture" data-furniture="plant" title="Place Plant">
-                            <!-- Plant (top-down) -->
-                            <svg width="18" height="18" viewBox="0 0 24 24">
-                                <circle cx="8" cy="14" r="5" fill="#388E3C"/>
-                                <circle cx="16" cy="14" r="5" fill="#388E3C"/>
-                                <circle cx="12" cy="10" r="6" fill="#4CAF50"/>
-                                <circle cx="9" cy="12" r="4" fill="#4CAF50"/>
-                                <circle cx="15" cy="12" r="4" fill="#4CAF50"/>
-                                <ellipse cx="12" cy="19" rx="4" ry="2" fill="#8B5A2B"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="toolbar-divider"></div>
-                    <div class="toolbar-group">
                         <button class="tool-btn" data-mode="place-entrance" title="Mark Door/Entrance">
-                            <!-- Door swing arc -->
                             <svg width="18" height="18" viewBox="0 0 24 24">
                                 <path d="M4 4 L4 20" stroke="#7F8C8D" stroke-width="2.5" stroke-linecap="round"/>
                                 <path d="M4 4 L20 4" stroke="#5D6D7E" stroke-width="2.5" stroke-linecap="round"/>
@@ -129,7 +272,6 @@
                             </svg>
                         </button>
                         <button class="tool-btn" data-mode="draw-edge" title="Draw Room Edge (Grey-out Area)">
-                            <!-- Wall/border icon -->
                             <svg width="18" height="18" viewBox="0 0 24 24">
                                 <rect x="2" y="2" width="20" height="20" rx="2" fill="none" stroke="#7F8C8D" stroke-width="2" stroke-dasharray="4 2"/>
                                 <rect x="4" y="4" width="6" height="16" fill="#6B7280" opacity="0.6"/>
@@ -147,7 +289,7 @@
                     </div>
                 </div>
 
-                <!-- Sensor Status Bar - between toolbar and canvas -->
+                <!-- Sensor Status Bar -->
                 <div class="sensor-status-bar" id="sensorStatusBar">
                     <div class="status-item">
                         <span class="status-label">Targets:</span>

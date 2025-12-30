@@ -331,9 +331,12 @@ export class RadarCanvas {
         // Draw based on furniture type with simpler, cleaner icons
         switch (furniture.type) {
             case 'table':
+            case 'desk':
+            case 'bedside-table':
                 this.drawSimpleTable(-halfW, -halfH, halfW * 2, halfH * 2);
                 break;
             case 'chair':
+            case 'dining-chair':
                 this.drawSimpleChair(-halfW, -halfH, halfW * 2, halfH * 2);
                 break;
             case 'bed':
@@ -346,10 +349,30 @@ export class RadarCanvas {
                 this.drawSimplePlant(0, 0, Math.min(halfW, halfH));
                 break;
             case 'cabinet':
+            case 'drawers':
+            case 'wardrobe':
                 this.drawSimpleCabinet(-halfW, -halfH, halfW * 2, halfH * 2);
                 break;
             case 'lamp':
                 this.drawSimpleLamp(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'tv':
+                this.drawSimpleTV(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'speaker':
+                this.drawSimpleSpeaker(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'fridge':
+                this.drawSimpleFridge(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'radiator':
+                this.drawSimpleRadiator(-halfW, -halfH, halfW * 2, halfH * 2);
+                break;
+            case 'fan':
+                this.drawSimpleFan(0, 0, Math.min(halfW, halfH));
+                break;
+            case 'window':
+                this.drawSimpleWindow(-halfW, -halfH, halfW * 2, halfH * 2);
                 break;
             default:
                 // Generic rectangle
@@ -691,6 +714,165 @@ export class RadarCanvas {
         this.ctx.beginPath();
         this.ctx.arc(cx, cy, radius * 0.6, 0, Math.PI * 2);
         this.ctx.stroke();
+    }
+
+    drawSimpleTV(x, y, w, h) {
+        const r = 2;
+
+        // TV body (dark)
+        this.ctx.fillStyle = '#1a1a1a';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Screen (inner rectangle)
+        const padding = Math.min(w, h) * 0.1;
+        this.ctx.fillStyle = '#4a90d9';
+        this.roundRect(x + padding, y + padding, w - padding * 2, h - padding * 2, r);
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(80, 80, 80, 0.8)';
+        this.ctx.lineWidth = 1.5;
+        this.roundRect(x, y, w, h, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleSpeaker(x, y, w, h) {
+        const r = 4;
+
+        // Speaker body
+        this.ctx.fillStyle = '#2d2d2d';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Top speaker cone (small)
+        const coneRadius = Math.min(w, h) * 0.2;
+        const topConeY = y + h * 0.25;
+        this.ctx.fillStyle = '#3d3d3d';
+        this.ctx.beginPath();
+        this.ctx.arc(x + w / 2, topConeY, coneRadius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Bottom speaker cone (large)
+        const bigConeRadius = Math.min(w, h) * 0.35;
+        const bottomConeY = y + h * 0.65;
+        this.ctx.beginPath();
+        this.ctx.arc(x + w / 2, bottomConeY, bigConeRadius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+        this.ctx.lineWidth = 1.5;
+        this.roundRect(x, y, w, h, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleFridge(x, y, w, h) {
+        const r = 3;
+
+        // Fridge body
+        this.ctx.fillStyle = '#E0E0E0';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Freezer section (top)
+        this.ctx.fillStyle = '#F5F5F5';
+        this.roundRect(x + 2, y + 2, w - 4, h * 0.3, r);
+        this.ctx.fill();
+
+        // Main compartment
+        this.ctx.fillStyle = '#F5F5F5';
+        this.roundRect(x + 2, y + h * 0.35, w - 4, h * 0.62, r);
+        this.ctx.fill();
+
+        // Divider line
+        this.ctx.strokeStyle = '#BDBDBD';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 2, y + h * 0.33);
+        this.ctx.lineTo(x + w - 2, y + h * 0.33);
+        this.ctx.stroke();
+
+        // Handle
+        this.ctx.fillStyle = '#9E9E9E';
+        this.ctx.fillRect(x + w * 0.8, y + h * 0.15, 3, h * 0.12);
+        this.ctx.fillRect(x + w * 0.8, y + h * 0.5, 3, h * 0.2);
+    }
+
+    drawSimpleRadiator(x, y, w, h) {
+        const r = 2;
+
+        // Radiator body
+        this.ctx.fillStyle = '#E0E0E0';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Radiator fins
+        const finCount = Math.floor(w / 15);
+        const finWidth = 4;
+        const gap = (w - finCount * finWidth) / (finCount + 1);
+
+        this.ctx.fillStyle = '#BDBDBD';
+        for (let i = 0; i < finCount; i++) {
+            const finX = x + gap + i * (finWidth + gap);
+            this.roundRect(finX, y + 2, finWidth, h - 4, 1);
+            this.ctx.fill();
+        }
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+        this.ctx.lineWidth = 1;
+        this.roundRect(x, y, w, h, r);
+        this.ctx.stroke();
+    }
+
+    drawSimpleFan(cx, cy, radius) {
+        // Outer circle
+        this.ctx.fillStyle = '#E8E8E8';
+        this.ctx.strokeStyle = '#BDBDBD';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        // Fan blades
+        this.ctx.fillStyle = '#78909C';
+        for (let i = 0; i < 4; i++) {
+            this.ctx.save();
+            this.ctx.translate(cx, cy);
+            this.ctx.rotate((i * Math.PI) / 2);
+            this.ctx.beginPath();
+            this.ctx.ellipse(0, -radius * 0.5, radius * 0.15, radius * 0.4, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+        }
+
+        // Center hub
+        this.ctx.fillStyle = '#424242';
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, radius * 0.15, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+
+    drawSimpleWindow(x, y, w, h) {
+        const r = 2;
+
+        // Window frame (brown)
+        this.ctx.fillStyle = '#5D4037';
+        this.roundRect(x, y, w, h, r);
+        this.ctx.fill();
+
+        // Glass panes (light blue)
+        this.ctx.fillStyle = '#87CEEB';
+        const paneW = (w - 6) / 2;
+        const paneH = h - 4;
+        this.ctx.fillRect(x + 2, y + 2, paneW, paneH);
+        this.ctx.fillRect(x + paneW + 4, y + 2, paneW, paneH);
+
+        // Center divider
+        this.ctx.fillStyle = '#5D4037';
+        this.ctx.fillRect(x + paneW + 2, y, 2, h);
     }
 
     // Keep old functions for backwards compatibility (they're just aliases now)

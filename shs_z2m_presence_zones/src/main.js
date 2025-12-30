@@ -87,6 +87,9 @@ const elements = {
     sensorSelector: document.getElementById('sensorSelector'),
     positionReportingBtn: document.getElementById('positionReportingBtn'),
 
+    // Dark Mode Toggle
+    darkModeToggle: document.getElementById('darkModeToggle'),
+
     // Canvas & Shape Actions
     radarCanvas: document.getElementById('radarCanvas'),
     canvasContainer: document.querySelector('.canvas-container'),
@@ -332,14 +335,24 @@ const drawingManager = new DrawingManager(radarCanvas, state, {
  * Update toolbar button active state
  */
 function updateToolbarActiveState(mode) {
-    const buttons = document.querySelectorAll('.tool-btn');
-    buttons.forEach(btn => {
+    // Update toolbar buttons
+    const toolButtons = document.querySelectorAll('.tool-btn');
+    toolButtons.forEach(btn => {
         const btnMode = btn.dataset.mode;
+
+        if (btnMode === mode) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Update furniture sidebar buttons
+    const furnitureButtons = document.querySelectorAll('.furniture-item');
+    furnitureButtons.forEach(btn => {
         const btnFurniture = btn.dataset.furniture;
 
         if (mode === 'place-furniture' && btnFurniture === state.canvas.placingFurniture) {
-            btn.classList.add('active');
-        } else if (btnMode === mode && !btnFurniture) {
             btn.classList.add('active');
         } else {
             btn.classList.remove('active');
@@ -1526,11 +1539,64 @@ elements.zoneCards.forEach((card, index) => {
 });
 
 // ============================================================================
+// Dark Mode Toggle
+// ============================================================================
+
+const THEME_STORAGE_KEY = 'shs_z2m_theme';
+
+function initTheme() {
+    // Check for saved theme preference
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+    // Default is dark mode (no data-theme attribute needed)
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? null : 'light';
+
+    if (newTheme) {
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.removeItem(THEME_STORAGE_KEY);
+    }
+}
+
+// Dark Mode Toggle Button
+if (elements.darkModeToggle) {
+    elements.darkModeToggle.addEventListener('click', toggleTheme);
+}
+
+// Furniture Sidebar Items
+document.querySelectorAll('.furniture-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        const furniture = btn.dataset.furniture;
+
+        // Remove active class from all furniture items
+        document.querySelectorAll('.furniture-item').forEach(b => b.classList.remove('active'));
+
+        if (mode === 'place-furniture' && furniture) {
+            btn.classList.add('active');
+            state.canvas.placingFurniture = furniture;
+            drawingManager.setMode('place-furniture');
+        }
+    });
+});
+
+// ============================================================================
 // Initialization
 // ============================================================================
 
 async function init() {
     console.log('[INIT] Starting application...');
+
+    // Initialize theme before anything else
+    initTheme();
 
     // Immediately update status to show JS is running
     if (elements.mqttStatusText) {
