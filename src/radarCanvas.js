@@ -1560,44 +1560,32 @@ export class RadarCanvas {
         const x = this.toCanvasX(transformed.x);
         const y = this.toCanvasY(transformed.y);
 
-        // Rate-limited debug logging (once per second for first target)
-        if (index === 0 && this.mapRotation !== 0) {
-            const now = Date.now();
-            if (!this._lastTargetLog || now - this._lastTargetLog > 1000) {
-                this._lastTargetLog = now;
-                const side = target.x < 0 ? 'LEFT' : target.x > 0 ? 'RIGHT' : 'CENTER';
-                const canvasSide = x < this.width / 2 ? 'left' : x > this.width / 2 ? 'right' : 'center';
-                console.log(`[TARGET] sensor(${target.x}, ${target.y}) [${side}] -> canvas(${Math.round(x)}, ${Math.round(y)}) [${canvasSide}] rotation=${this.mapRotation}°`);
-            }
-        }
-
         // Sensor origin also needs transformation for distance line
         const sensorTransformed = this.transformSensorToRoom(0, 0);
         const sensorX = this.toCanvasX(sensorTransformed.x);
         const sensorY = this.toCanvasY(sensorTransformed.y);
 
-
         // Apple Maps style target dot
-        const blueColor = '#4285F4';  // Google/Apple blue
-        const isLightMode = document.documentElement.getAttribute('data-theme') === 'light';
+        const blueColor = '#4285F4';
 
-        // Outer ring with shadow for visibility
-        this.ctx.save();
-        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-        this.ctx.shadowBlur = 4;
-        this.ctx.shadowOffsetX = 0;
-        this.ctx.shadowOffsetY = 1;
+        // Outer white ring with shadow
         this.ctx.beginPath();
         this.ctx.arc(x, y, 12, 0, Math.PI * 2);
         this.ctx.fillStyle = '#ffffff';
+        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        this.ctx.shadowBlur = 4;
+        this.ctx.shadowOffsetY = 1;
         this.ctx.fill();
-        this.ctx.restore();
+        // Reset shadow
+        this.ctx.shadowColor = 'transparent';
+        this.ctx.shadowBlur = 0;
+        this.ctx.shadowOffsetY = 0;
 
-        // Border for outer ring (more visible in light mode)
+        // Border for outer ring
         this.ctx.beginPath();
         this.ctx.arc(x, y, 12, 0, Math.PI * 2);
-        this.ctx.strokeStyle = isLightMode ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.15)';
-        this.ctx.lineWidth = isLightMode ? 1.5 : 1;
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        this.ctx.lineWidth = 1;
         this.ctx.stroke();
 
         // Inner blue circle
@@ -1616,16 +1604,16 @@ export class RadarCanvas {
         this.ctx.stroke();
         this.ctx.setLineDash([]);
 
-        // Label (simple text since we're outside the rotated context)
+        // Label
         this.ctx.font = 'bold 11px sans-serif';
         this.ctx.fillStyle = blueColor;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`T${index + 1}`, x, y - 15);
+        this.ctx.fillText(`T${index + 1}`, x, y - 18);
 
         // Distance label
         this.ctx.font = '10px monospace';
-        this.ctx.fillText(`${Math.round(target.distance / 10) / 100}m`, x, y + 20);
+        this.ctx.fillText(`${Math.round(target.distance / 10) / 100}m`, x, y + 22);
     }
 
     /**
