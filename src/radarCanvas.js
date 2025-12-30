@@ -1343,14 +1343,14 @@ export class RadarCanvas {
         const centerX = (x1 + x2) / 2;
         const centerY = (y1 + y2) / 2;
         const zoneType = zone.zoneType === 'interference' ? 'Interference' : 'Detection';
-        // Draw zone number
-        this.drawUprightText(`Zone ${index + 1}`, centerX, centerY - 8, {
+        // Draw zone number (on top)
+        this.drawUprightText(`Zone ${index + 1}`, centerX, centerY + 8, {
             font: 'bold 12px sans-serif',
             color: color.border,
             align: 'center'
         });
         // Draw zone type below
-        this.drawUprightText(`(${zoneType})`, centerX, centerY + 8, {
+        this.drawUprightText(`(${zoneType})`, centerX, centerY - 8, {
             font: '11px sans-serif',
             color: color.border,
             align: 'center'
@@ -1395,14 +1395,14 @@ export class RadarCanvas {
         const centerX = (x1 + x2) / 2;
         const centerY = (y1 + y2) / 2;
         const zoneType = zone.zoneType === 'interference' ? 'Interference' : 'Detection';
-        // Draw zone number
-        this.drawUprightText(`Zone ${index + 1}`, centerX, centerY - 8, {
+        // Draw zone number (on top)
+        this.drawUprightText(`Zone ${index + 1}`, centerX, centerY + 8, {
             font: 'bold 12px sans-serif',
             color: color.border,
             align: 'center'
         });
         // Draw zone type below
-        this.drawUprightText(`(${zoneType})`, centerX, centerY + 8, {
+        this.drawUprightText(`(${zoneType})`, centerX, centerY - 8, {
             font: '11px sans-serif',
             color: color.border,
             align: 'center'
