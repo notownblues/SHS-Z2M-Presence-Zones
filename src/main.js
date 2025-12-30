@@ -653,11 +653,21 @@ function connectWebSocket() {
     }
     const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
 
-    console.log('Connecting to backend WebSocket:', wsUrl);
-    elements.mqttStatusText.textContent = 'Connecting...';
+    console.log('[WS] Location:', window.location.href);
+    console.log('[WS] Base path:', basePath);
+    console.log('[WS] Connecting to:', wsUrl);
+
+    elements.mqttStatusText.textContent = 'Connecting to MQTT...';
     elements.mqttStatus.classList.remove('online');
 
-    wsConnection = new WebSocket(wsUrl);
+    try {
+        wsConnection = new WebSocket(wsUrl);
+        console.log('[WS] WebSocket object created');
+    } catch (error) {
+        console.error('[WS] Failed to create WebSocket:', error);
+        elements.mqttStatusText.textContent = 'Connection failed';
+        return;
+    }
 
     wsConnection.onopen = () => {
         console.log('WebSocket connected to backend');
@@ -1486,6 +1496,13 @@ elements.zoneCards.forEach((card, index) => {
 // ============================================================================
 
 async function init() {
+    console.log('[INIT] Starting application...');
+
+    // Immediately update status to show JS is running
+    if (elements.mqttStatusText) {
+        elements.mqttStatusText.textContent = 'Initializing...';
+    }
+
     // Load saved room name from localStorage
     loadCredentials();
 
@@ -1515,7 +1532,13 @@ async function init() {
     animate();
 
     // Connect to backend WebSocket server
-    connectWebSocket();
+    try {
+        console.log('[INIT] Connecting to WebSocket...');
+        connectWebSocket();
+    } catch (error) {
+        console.error('[INIT] WebSocket connection error:', error);
+        elements.mqttStatusText.textContent = 'WebSocket error';
+    }
 
     // Update UI based on topic state
     const topic = elements.mqttTopic.value;
@@ -1523,7 +1546,11 @@ async function init() {
         elements.mqttStatusText.textContent = 'Enter MQTT topic to connect';
         elements.mqttStatus.classList.remove('online');
     }
+
+    console.log('[INIT] Initialization complete');
 }
 
 // Start application
-init();
+init().catch(error => {
+    console.error('[INIT] Fatal error:', error);
+});
