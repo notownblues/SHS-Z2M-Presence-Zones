@@ -637,17 +637,21 @@ body {
 }
 
 /* Button row for Save/Delete */
-.button-row {
+.form-group.button-row {
     display: flex;
-    gap: var(--spacing-sm);
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: var(--spacing-md);
 }
 
-.button-row .btn {
-    flex: 1;
-    display: flex;
+.form-group.button-row .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
+    width: auto;
 }
 
 /* ============================================================================
