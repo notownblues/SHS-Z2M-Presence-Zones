@@ -893,10 +893,6 @@ function handleTopicChange(newTopic) {
 
 function handleMQTTMessage(topic, data) {
     try {
-        // Data is already parsed by the backend
-        console.log(`[MQTT DATA] Keys: ${Object.keys(data).join(', ')}`);
-        console.log(`[MQTT DATA] Full:`, JSON.stringify(data).substring(0, 500));
-
         // Update target count from Zigbee2MQTT
         if (data.ld2450_target_count !== undefined) {
             state.sensor.targetCount = data.ld2450_target_count;
@@ -957,31 +953,21 @@ function handleMQTTMessage(topic, data) {
             elements.zone5OccupancyIcon?.classList.toggle('occupied', data.zone5_occupied);
         }
 
-        // Update position data from EP8-16 (Target 1, 2, 3 X/Y/Distance)
-        // Target 1: EP8=X, EP9=Y, EP10=Distance
-        if (data.target1_x !== undefined) {
-            state.sensor.positions.t1.x = data.target1_x;
-            console.log(`[POSITION] Target1 X received: ${data.target1_x}`);
-        }
-        if (data.target1_y !== undefined) {
-            state.sensor.positions.t1.y = data.target1_y;
-            console.log(`[POSITION] Target1 Y received: ${data.target1_y}`);
-        }
+        // Update position data (Target 1, 2, 3 X/Y/Distance)
+        if (data.target1_x !== undefined) state.sensor.positions.t1.x = data.target1_x;
+        if (data.target1_y !== undefined) state.sensor.positions.t1.y = data.target1_y;
         if (data.target1_distance !== undefined) state.sensor.positions.t1.distance = data.target1_distance;
 
-        // Target 2: EP11=X, EP12=Y, EP13=Distance
         if (data.target2_x !== undefined) state.sensor.positions.t2.x = data.target2_x;
         if (data.target2_y !== undefined) state.sensor.positions.t2.y = data.target2_y;
         if (data.target2_distance !== undefined) state.sensor.positions.t2.distance = data.target2_distance;
 
-        // Target 3: EP14=X, EP15=Y, EP16=Distance
         if (data.target3_x !== undefined) state.sensor.positions.t3.x = data.target3_x;
         if (data.target3_y !== undefined) state.sensor.positions.t3.y = data.target3_y;
         if (data.target3_distance !== undefined) state.sensor.positions.t3.distance = data.target3_distance;
 
         // Build targets array from position data
         updateTargetsFromPositions();
-        console.log(`[MQTT] After updateTargetsFromPositions: targets array length = ${state.sensor.targets.length}`);
 
         // Redraw canvas with current targets
         radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
@@ -994,17 +980,14 @@ function handleMQTTMessage(topic, data) {
 function updateTargetsFromPositions() {
     state.sensor.targets = [];
 
-    console.log(`[TARGETS] Checking positions - T1:(${state.sensor.positions.t1.x}, ${state.sensor.positions.t1.y}) T2:(${state.sensor.positions.t2.x}, ${state.sensor.positions.t2.y}) T3:(${state.sensor.positions.t3.x}, ${state.sensor.positions.t3.y})`);
-
     // Add target 1 if active (non-zero position)
     if (state.sensor.positions.t1.x !== 0 || state.sensor.positions.t1.y !== 0) {
         state.sensor.targets.push({
             x: state.sensor.positions.t1.x,
             y: state.sensor.positions.t1.y,
             distance: state.sensor.positions.t1.distance,
-            speed: 0  // Speed not provided via Zigbee
+            speed: 0
         });
-        console.log(`[TARGETS] Added target 1: (${state.sensor.positions.t1.x}, ${state.sensor.positions.t1.y})`);
     }
 
     // Add target 2 if active
@@ -1015,7 +998,6 @@ function updateTargetsFromPositions() {
             distance: state.sensor.positions.t2.distance,
             speed: 0
         });
-        console.log(`[TARGETS] Added target 2: (${state.sensor.positions.t2.x}, ${state.sensor.positions.t2.y})`);
     }
 
     // Add target 3 if active
@@ -1026,10 +1008,7 @@ function updateTargetsFromPositions() {
             distance: state.sensor.positions.t3.distance,
             speed: 0
         });
-        console.log(`[TARGETS] Added target 3: (${state.sensor.positions.t3.x}, ${state.sensor.positions.t3.y})`);
     }
-
-    console.log(`[TARGETS] Final targets array length: ${state.sensor.targets.length}`);
 
     updateTargetListDisplay();
 }

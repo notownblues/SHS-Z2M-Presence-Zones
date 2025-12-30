@@ -326,11 +326,6 @@ export class RadarCanvas {
         this.ctx.restore();
 
         // Draw targets OUTSIDE the rotated context using explicit transformation
-        // This gives more predictable and debuggable results
-        console.log(`[DRAW FRAME] targets.length = ${targets.length}`);
-        if (targets.length > 0) {
-            console.log(`[DRAW FRAME] Drawing ${targets.length} targets:`, JSON.stringify(targets));
-        }
         targets.forEach((target, index) => {
             this.drawTarget(target, index);
         });
@@ -1283,26 +1278,27 @@ export class RadarCanvas {
     drawSensorOrigin() {
         const x = this.toCanvasX(0);
         const y = this.toCanvasY(0);
+        const sensorColor = '#f97316'; // Orange
 
-        // Sensor circle
-        this.ctx.fillStyle = this.COLORS.sensor;
+        // Sensor circle (larger)
+        this.ctx.fillStyle = sensorColor;
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 8, 0, Math.PI * 2);
+        this.ctx.arc(x, y, 12, 0, Math.PI * 2);
         this.ctx.fill();
 
         // Detection cone (180° arc)
-        this.ctx.strokeStyle = this.COLORS.sensor;
+        this.ctx.strokeStyle = sensorColor;
         this.ctx.lineWidth = 2;
         this.ctx.setLineDash([5, 5]);
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 30, Math.PI, 0, false);
+        this.ctx.arc(x, y, 35, Math.PI, 0, false);
         this.ctx.stroke();
         this.ctx.setLineDash([]);
 
         // Label (upright)
-        this.drawUprightText('SHS01', x, y - 20, {
+        this.drawUprightText('SHS01', x, y - 25, {
             font: '12px sans-serif',
-            color: this.COLORS.sensor
+            color: sensorColor
         });
     }
 
@@ -1558,54 +1554,37 @@ export class RadarCanvas {
     }
 
     drawTarget(target, index) {
-        console.log(`[DRAW TARGET] Called for target ${index} with data:`, target);
-
         // Transform sensor coordinates to room/display coordinates based on rotation
-        // This is done explicitly since targets are drawn outside the rotated context
         const transformed = this.transformSensorToRoom(target.x, target.y);
         const x = this.toCanvasX(transformed.x);
         const y = this.toCanvasY(transformed.y);
 
-        console.log(`[DRAW TARGET ${index}] sensor(${target.x}, ${target.y}) -> transformed(${transformed.x}, ${transformed.y}) -> canvas(${Math.round(x)}, ${Math.round(y)}) canvas: ${this.width}x${this.height}`);
-
-        // Sensor origin also needs transformation for distance line
-        const sensorTransformed = this.transformSensorToRoom(0, 0);
-        const sensorX = this.toCanvasX(sensorTransformed.x);
-        const sensorY = this.toCanvasY(sensorTransformed.y);
-
-        // Target circle
-        this.ctx.fillStyle = this.COLORS.target;
+        // Pulsating outer ring (blue, animates)
+        const pulseRadius = 18 + Math.sin(Date.now() / 300 + index) * 4;
+        this.ctx.strokeStyle = 'rgba(74, 124, 232, 0.6)';
+        this.ctx.lineWidth = 1.5;
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 6, 0, Math.PI * 2);
+        this.ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+        this.ctx.stroke();
+
+        // White ring (border around blue dot)
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 11, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Target ring (pulsing effect)
-        this.ctx.strokeStyle = this.COLORS.target;
-        this.ctx.lineWidth = 2;
+        // Blue filled dot (center)
+        this.ctx.fillStyle = '#4a7ce8';
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 10 + Math.sin(Date.now() / 200 + index) * 3, 0, Math.PI * 2);
-        this.ctx.stroke();
+        this.ctx.arc(x, y, 8, 0, Math.PI * 2);
+        this.ctx.fill();
 
-        // Distance line from sensor origin
-        this.ctx.strokeStyle = this.COLORS.target;
-        this.ctx.lineWidth = 1;
-        this.ctx.setLineDash([3, 3]);
-        this.ctx.beginPath();
-        this.ctx.moveTo(sensorX, sensorY);
-        this.ctx.lineTo(x, y);
-        this.ctx.stroke();
-        this.ctx.setLineDash([]);
-
-        // Label
+        // Label above
         this.ctx.font = 'bold 11px sans-serif';
         this.ctx.fillStyle = this.COLORS.target;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`T${index + 1}`, x, y - 15);
-
-        // Distance label
-        this.ctx.font = '10px monospace';
-        this.ctx.fillText(`${Math.round(target.distance / 10) / 100}m`, x, y + 20);
+        this.ctx.fillText(`T${index + 1}`, x, y - 22);
     }
 
     /**
