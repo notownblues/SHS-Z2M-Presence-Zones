@@ -85,7 +85,7 @@ export class RadarCanvas {
                 preview: 'rgba(0, 0, 0, 0.2)',
                 previewBorder: '#1f2328',
                 selection: '#0969da',
-                handle: '#1f2328',
+                handle: '#ffffff',
                 furniture: 'rgba(101, 109, 118, 0.4)',
                 furnitureBorder: '#656d76',
                 entrance: '#9a6700',
@@ -1579,14 +1579,25 @@ export class RadarCanvas {
 
         // Apple Maps style target dot
         const blueColor = '#4285F4';  // Google/Apple blue
+        const isLightMode = document.documentElement.getAttribute('data-theme') === 'light';
 
-        // Outer white ring with subtle shadow
+        // Outer ring with shadow for visibility
+        this.ctx.save();
+        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        this.ctx.shadowBlur = 4;
+        this.ctx.shadowOffsetX = 0;
+        this.ctx.shadowOffsetY = 1;
         this.ctx.beginPath();
         this.ctx.arc(x, y, 12, 0, Math.PI * 2);
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fill();
-        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
-        this.ctx.lineWidth = 1;
+        this.ctx.restore();
+
+        // Border for outer ring (more visible in light mode)
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 12, 0, Math.PI * 2);
+        this.ctx.strokeStyle = isLightMode ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.15)';
+        this.ctx.lineWidth = isLightMode ? 1.5 : 1;
         this.ctx.stroke();
 
         // Inner blue circle
