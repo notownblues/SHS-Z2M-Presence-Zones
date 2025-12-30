@@ -1,11 +1,13 @@
-import mqtt from 'mqtt';
 import { RadarCanvas } from './radarCanvas.js';
 import { ZoneManager } from './zoneManager.js';
 import { StorageManager } from './storageManager.js';
 import { DrawingManager } from './drawingManager.js';
 
-// LocalStorage key for saving credentials
+// LocalStorage key for saving room name
 const STORAGE_KEY = 'ld2450_zone_config_settings';
+
+// WebSocket connection to backend server
+let wsConnection = null;
 
 // ============================================================================
 // Application State
@@ -48,7 +50,8 @@ const state = {
     // Visual annotations (not sent to sensor)
     annotations: {
         furniture: [],
-        entrances: []
+        entrances: [],
+        edges: []  // Grey-out areas for room boundaries
     },
     // Canvas interaction state
     canvas: {
@@ -74,18 +77,14 @@ const state = {
 // ============================================================================
 
 const elements = {
-    // MQTT Connection
+    // MQTT Connection (broker settings from addon config, topic from UI)
     mqttStatus: document.getElementById('mqttStatus'),
     mqttStatusText: document.getElementById('mqttStatusText'),
-    mqttBroker: document.getElementById('mqttBroker'),
-    mqttUsername: document.getElementById('mqttUsername'),
-    mqttPassword: document.getElementById('mqttPassword'),
     mqttTopic: document.getElementById('mqttTopic'),
     roomName: document.getElementById('roomName'),
     saveRoomBtn: document.getElementById('saveRoomBtn'),
     deleteRoomBtn: document.getElementById('deleteRoomBtn'),
     sensorSelector: document.getElementById('sensorSelector'),
-    connectBtn: document.getElementById('connectBtn'),
     positionReportingBtn: document.getElementById('positionReportingBtn'),
 
     // Canvas & Shape Actions
@@ -94,6 +93,8 @@ const elements = {
     shapeActions: document.getElementById('shapeActions'),
     moveShapeBtn: document.getElementById('moveShapeBtn'),
     rotateShapeBtn: document.getElementById('rotateShapeBtn'),
+    increaseSizeBtn: document.getElementById('increaseSizeBtn'),
+    decreaseSizeBtn: document.getElementById('decreaseSizeBtn'),
     deleteShapeBtn: document.getElementById('deleteShapeBtn'),
 
     // Placement Done
@@ -290,6 +291,38 @@ const drawingManager = new DrawingManager(radarCanvas, state, {
         radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
         triggerAutoSave();
     },
+    // Edge callbacks
+    onEdgePlaced: (edge) => {
+        radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+        triggerAutoSave();
+    },
+    onEdgeSelect: (index, edge) => {
+        radarCanvas.setSelectedEdge(index);
+
+        if (index !== null) {
+            radarCanvas.setSelectedZone(null);
+            radarCanvas.setSelectedFurniture(null);
+            radarCanvas.setSelectedEntrance(null);
+            selectedItemType = 'edge';
+            selectedItemIndex = index;
+            updateZoneCardSelection(null);
+            if (edge) {
+                showShapeActions(edge);
+            }
+        } else {
+            selectedItemType = null;
+            selectedItemIndex = null;
+            hideShapeActions();
+        }
+    },
+    onEdgeDeleted: (index) => {
+        selectedItemType = null;
+        selectedItemIndex = null;
+        hideShapeActions();
+        radarCanvas.setSelectedEdge(null);
+        radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+        triggerAutoSave();
+    },
     onError: (message) => {
         alert(message);
     }
@@ -425,6 +458,15 @@ function showShapeActions(shape) {
     const displayX = rotatedCenterX / scaleX;
     const displayY = (rotatedTopY / scaleY) - 45; // 45px above the shape
 
+    // Show/hide resize buttons based on item type (zones don't support resize)
+    const showResizeButtons = selectedItemType !== 'zone';
+    if (elements.increaseSizeBtn) {
+        elements.increaseSizeBtn.style.display = showResizeButtons ? 'flex' : 'none';
+    }
+    if (elements.decreaseSizeBtn) {
+        elements.decreaseSizeBtn.style.display = showResizeButtons ? 'flex' : 'none';
+    }
+
     // Position the action buttons
     elements.shapeActions.style.left = `${displayX}px`;
     elements.shapeActions.style.top = `${Math.max(10, displayY)}px`;
@@ -485,6 +527,79 @@ function deleteSelectedShape() {
         drawingManager.deleteSelectedFurniture();
     } else if (selectedItemType === 'entrance' && selectedItemIndex !== null) {
         drawingManager.deleteSelectedEntrance();
+    } else if (selectedItemType === 'edge' && selectedItemIndex !== null) {
+        deleteSelectedEdge();
+    }
+}
+
+/**
+ * Delete the selected edge
+ */
+function deleteSelectedEdge() {
+    if (selectedItemType !== 'edge' || selectedItemIndex === null) return;
+
+    drawingManager.deleteSelectedEdge();
+}
+
+/**
+ * Resize selected furniture or entrance by a scale factor
+ * @param {number} scaleFactor - 1.1 to increase by 10%, 0.9 to decrease by 10%
+ */
+function resizeSelectedShape(scaleFactor) {
+    const MIN_SIZE = 200;  // Minimum 200mm
+    const MAX_SIZE = 4000; // Maximum 4000mm
+
+    if (selectedItemType === 'furniture' && selectedItemIndex !== null) {
+        const furniture = state.annotations.furniture[selectedItemIndex];
+        if (furniture) {
+            const newWidth = Math.round(furniture.width * scaleFactor);
+            const newHeight = Math.round(furniture.height * scaleFactor);
+
+            // Clamp to min/max
+            furniture.width = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newWidth));
+            furniture.height = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newHeight));
+
+            showShapeActions(furniture);
+            radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+            triggerAutoSave();
+        }
+    } else if (selectedItemType === 'entrance' && selectedItemIndex !== null) {
+        const entrance = state.annotations.entrances[selectedItemIndex];
+        if (entrance) {
+            // Initialize width if not present (default 800mm door)
+            if (!entrance.width) entrance.width = 800;
+
+            const newWidth = Math.round(entrance.width * scaleFactor);
+            entrance.width = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newWidth));
+
+            showShapeActions(entrance);
+            radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+            triggerAutoSave();
+        }
+    } else if (selectedItemType === 'edge' && selectedItemIndex !== null) {
+        const edge = state.annotations.edges[selectedItemIndex];
+        if (edge) {
+            // Scale edge dimensions from center
+            const centerX = (edge.x1 + edge.x2) / 2;
+            const centerY = (edge.y1 + edge.y2) / 2;
+            const halfWidth = Math.abs(edge.x2 - edge.x1) / 2 * scaleFactor;
+            const halfHeight = Math.abs(edge.y2 - edge.y1) / 2 * scaleFactor;
+
+            edge.x1 = Math.round(centerX - halfWidth);
+            edge.x2 = Math.round(centerX + halfWidth);
+            edge.y1 = Math.round(centerY - halfHeight);
+            edge.y2 = Math.round(centerY + halfHeight);
+
+            // Clamp to sensor bounds
+            edge.x1 = Math.max(-3000, Math.min(3000, edge.x1));
+            edge.x2 = Math.max(-3000, Math.min(3000, edge.x2));
+            edge.y1 = Math.max(0, Math.min(6000, edge.y1));
+            edge.y2 = Math.max(0, Math.min(6000, edge.y2));
+
+            showShapeActions(edge);
+            radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+            triggerAutoSave();
+        }
     }
 }
 
@@ -521,105 +636,154 @@ function updateZoneCards() {
 }
 
 // ============================================================================
-// MQTT Functions
+// WebSocket Connection to Backend Server
 // ============================================================================
 
-function connectMQTT() {
-    const broker = elements.mqttBroker.value;
-    const username = elements.mqttUsername.value;
-    const password = elements.mqttPassword.value;
-    const baseTopic = elements.mqttTopic.value;
+/**
+ * Connect to backend WebSocket server
+ */
+function connectWebSocket() {
+    // Build WebSocket URL - handle HA ingress path
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Get the base path (for HA ingress, this includes /api/hassio_ingress/xxxx/)
+    let basePath = window.location.pathname;
+    // Remove trailing slash and any filename
+    if (basePath.endsWith('/')) {
+        basePath = basePath.slice(0, -1);
+    }
+    const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
 
-    // Update state
-    state.mqtt.broker = broker;
-    state.mqtt.username = username;
-    state.mqtt.password = password;
-    state.mqtt.baseTopic = baseTopic;
+    console.log('[WS] Location:', window.location.href);
+    console.log('[WS] Base path:', basePath);
+    console.log('[WS] Connecting to:', wsUrl);
 
-    // Create MQTT client options
-    const options = {
-        clientId: `ld2450-configurator-${Math.random().toString(16).slice(2, 8)}`,
-        clean: true,
-        reconnectPeriod: 5000
+    elements.mqttStatusText.textContent = 'Connecting to MQTT...';
+    elements.mqttStatus.classList.remove('online');
+
+    try {
+        wsConnection = new WebSocket(wsUrl);
+        console.log('[WS] WebSocket object created');
+    } catch (error) {
+        console.error('[WS] Failed to create WebSocket:', error);
+        elements.mqttStatusText.textContent = 'Connection failed';
+        return;
+    }
+
+    wsConnection.onopen = () => {
+        console.log('WebSocket connected to backend');
+
+        // Subscribe to MQTT topic if one is configured
+        const topic = elements.mqttTopic.value;
+        if (topic && topic.trim()) {
+            wsConnection.send(JSON.stringify({
+                type: 'subscribe',
+                topic: topic
+            }));
+        }
     };
 
-    if (username) {
-        options.username = username;
-        options.password = password;
-    }
-
-    console.log('Connecting to MQTT broker:', broker);
-    elements.mqttStatusText.textContent = 'Connecting...';
-
-    // Connect to broker
-    state.mqtt.client = mqtt.connect(broker, options);
-
-    // Connection events
-    state.mqtt.client.on('connect', () => {
-        console.log('Connected to MQTT broker');
-        state.mqtt.connected = true;
-        updateConnectionStatus(true);
-
-        // Subscribe to sensor data topic (occupancy, zones, target count, position data)
-        const topic = `${baseTopic}`;
-        state.mqtt.client.subscribe(topic, (err) => {
-            if (err) {
-                console.error('Failed to subscribe to sensor topic:', err);
-            } else {
-                console.log('Subscribed to sensor data:', topic);
-                // Request current position_reporting state from Z2M
-                const getTopic = `${baseTopic}/get`;
-                state.mqtt.client.publish(getTopic, JSON.stringify({ position_reporting: '' }), (pubErr) => {
-                    if (pubErr) {
-                        console.error('Failed to request position_reporting state:', pubErr);
-                    } else {
-                        console.log('Requested position_reporting state from:', getTopic);
-                    }
-                });
-            }
-        });
-
-        // Enable position reporting button
-        if (elements.positionReportingBtn) {
-            elements.positionReportingBtn.disabled = false;
+    wsConnection.onmessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            handleBackendMessage(message);
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
         }
-    });
+    };
 
-    state.mqtt.client.on('error', (error) => {
-        console.error('MQTT error:', error);
-        updateConnectionStatus(false);
-    });
-
-    state.mqtt.client.on('close', () => {
-        console.log('Disconnected from MQTT broker');
+    wsConnection.onclose = () => {
+        console.log('WebSocket disconnected');
         state.mqtt.connected = false;
         updateConnectionStatus(false);
-    });
 
-    state.mqtt.client.on('message', handleMQTTMessage);
+        // Reconnect after delay
+        setTimeout(() => {
+            if (!wsConnection || wsConnection.readyState === WebSocket.CLOSED) {
+                connectWebSocket();
+            }
+        }, 3000);
+    };
+
+    wsConnection.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        updateConnectionStatus(false, 'WebSocket error');
+    };
 }
 
-function disconnectMQTT() {
-    if (state.mqtt.client) {
-        state.mqtt.client.end();
-        state.mqtt.client = null;
-        state.mqtt.connected = false;
-        updateConnectionStatus(false);
+/**
+ * Handle messages from backend server
+ */
+function handleBackendMessage(message) {
+    switch (message.type) {
+        case 'mqtt_status':
+            state.mqtt.connected = message.connected;
+            if (message.connected) {
+                updateConnectionStatus(true);
+                if (elements.positionReportingBtn) {
+                    elements.positionReportingBtn.disabled = false;
+                }
+            } else {
+                updateConnectionStatus(false, message.error);
+                if (elements.positionReportingBtn) {
+                    elements.positionReportingBtn.disabled = true;
+                }
+            }
+            break;
+
+        case 'mqtt_message':
+            handleMQTTMessage(message.topic, message.data);
+            break;
+
+        case 'config':
+            console.log('Received config from backend:', message.mqtt);
+            break;
+    }
+}
+
+/**
+ * Send message to backend via WebSocket
+ */
+function sendToBackend(message) {
+    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+        wsConnection.send(JSON.stringify(message));
+        return true;
+    }
+    console.error('WebSocket not connected');
+    return false;
+}
+
+/**
+ * Handle MQTT topic change - tell backend to subscribe to new topic
+ */
+function handleTopicChange(newTopic) {
+    if (!newTopic || !newTopic.trim()) {
+        return;
     }
 
-    // Disable position reporting button
-    if (elements.positionReportingBtn) {
-        elements.positionReportingBtn.disabled = true;
+    const oldTopic = state.mqtt.baseTopic;
+
+    // Update state
+    state.mqtt.baseTopic = newTopic;
+
+    // Tell backend to unsubscribe from old topic and subscribe to new one
+    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+        if (oldTopic) {
+            sendToBackend({ type: 'unsubscribe', topic: oldTopic });
+        }
+        sendToBackend({ type: 'subscribe', topic: newTopic });
     }
+
+    // Save to localStorage
+    saveCredentials();
 }
 
 // ============================================================================
 // MQTT Message Handling
 // ============================================================================
 
-function handleMQTTMessage(topic, message) {
+function handleMQTTMessage(topic, data) {
     try {
-        const data = JSON.parse(message.toString());
+        // Data is already parsed by the backend
 
         // Update target count from Zigbee2MQTT
         if (data.ld2450_target_count !== undefined) {
@@ -722,7 +886,7 @@ function updateTargetsFromPositions() {
 }
 
 function togglePositionReporting() {
-    if (!state.mqtt.connected || !state.mqtt.client) {
+    if (!state.mqtt.connected) {
         alert('Not connected to MQTT broker');
         return;
     }
@@ -730,24 +894,25 @@ function togglePositionReporting() {
     // Toggle the state
     const newState = !state.sensor.positionReporting;
 
-    // Publish to set topic
-    const config = { position_reporting: newState };
+    // Publish to set topic via backend
     const topic = `${state.mqtt.baseTopic}/set`;
-
-    state.mqtt.client.publish(topic, JSON.stringify(config), { retain: false }, (err) => {
-        if (err) {
-            console.error('Failed to toggle position reporting:', err);
-            alert('Failed to toggle position reporting');
-        } else {
-            // Optimistically update local state and UI
-            state.sensor.positionReporting = newState;
-            updatePositionReportingButton();
-        }
+    const success = sendToBackend({
+        type: 'publish',
+        topic: topic,
+        payload: { position_reporting: newState }
     });
+
+    if (success) {
+        // Optimistically update local state and UI
+        state.sensor.positionReporting = newState;
+        updatePositionReportingButton();
+    } else {
+        alert('Failed to toggle position reporting');
+    }
 }
 
 function publishZoneConfig() {
-    if (!state.mqtt.connected || !state.mqtt.client) {
+    if (!state.mqtt.connected) {
         alert('Not connected to MQTT broker');
         return;
     }
@@ -797,28 +962,32 @@ function publishZoneConfig() {
         }
     };
 
-    // Publish to set topic
+    // Publish to set topic via backend
     const topic = `${state.mqtt.baseTopic}/set`;
     console.log('[ZONE CONFIG] Publishing to:', topic);
     console.log('[ZONE CONFIG] Payload:', JSON.stringify(config, null, 2));
-    state.mqtt.client.publish(topic, JSON.stringify(config), { retain: false }, (err) => {
-        if (err) {
-            console.error('Failed to publish zone config:', err);
-            alert('Failed to apply zone configuration');
-        } else {
-            const zoneModeNames = ['Off', 'Include', 'Exclude'];
-            const zoneDescriptions = enabledZones.map((_, i) => {
-                const zoneNum = state.zones.zones.findIndex(z => z === enabledZones[i]) + 1;
-                return `Zone ${zoneNum}`;
-            }).join(', ');
-            alert(
-                `Zone configuration applied!\n\n` +
-                `Mode: ${zoneModeNames[state.zones.type]}\n` +
-                `Enabled: ${zoneDescriptions || 'None'}\n\n` +
-                `Check serial output for firmware confirmation.`
-            );
-        }
+
+    const success = sendToBackend({
+        type: 'publish',
+        topic: topic,
+        payload: config
     });
+
+    if (success) {
+        const zoneModeNames = ['Off', 'Include', 'Exclude'];
+        const zoneDescriptions = enabledZones.map((_, i) => {
+            const zoneNum = state.zones.zones.findIndex(z => z === enabledZones[i]) + 1;
+            return `Zone ${zoneNum}`;
+        }).join(', ');
+        alert(
+            `Zone configuration applied!\n\n` +
+            `Mode: ${zoneModeNames[state.zones.type]}\n` +
+            `Enabled: ${zoneDescriptions || 'None'}\n\n` +
+            `Check serial output for firmware confirmation.`
+        );
+    } else {
+        alert('Failed to apply zone configuration');
+    }
 }
 
 // ============================================================================
@@ -826,10 +995,8 @@ function publishZoneConfig() {
 // ============================================================================
 
 function saveCredentials() {
+    // Only save room name and topic - broker settings come from addon config
     const settings = {
-        broker: elements.mqttBroker.value,
-        username: elements.mqttUsername.value,
-        password: elements.mqttPassword.value,
         baseTopic: elements.mqttTopic.value,
         roomName: elements.roomName.value
     };
@@ -841,9 +1008,6 @@ function loadCredentials() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             const settings = JSON.parse(saved);
-            if (settings.broker) elements.mqttBroker.value = settings.broker;
-            if (settings.username) elements.mqttUsername.value = settings.username;
-            if (settings.password) elements.mqttPassword.value = settings.password;
             if (settings.baseTopic) elements.mqttTopic.value = settings.baseTopic;
             if (settings.roomName) elements.roomName.value = settings.roomName;
         }
@@ -890,12 +1054,18 @@ function loadSensorConfig(roomName) {
         // Load zones with migration for old format
         state.zones = storageManager.migrateZoneConfig(config.zones);
 
-        // Load annotations
-        state.annotations = config.annotations || storageManager.getDefaultAnnotations();
+        // Load annotations (with edges support)
+        const annotations = config.annotations || storageManager.getDefaultAnnotations();
+        state.annotations = {
+            furniture: annotations.furniture || [],
+            entrances: annotations.entrances || [],
+            edges: annotations.edges || []
+        };
 
-        // Load MQTT topic if saved with the config
-        if (config.mqttTopic) {
+        // Load MQTT topic if saved with the config - trigger reconnect
+        if (config.mqttTopic && config.mqttTopic !== elements.mqttTopic.value) {
             elements.mqttTopic.value = config.mqttTopic;
+            handleTopicChange(config.mqttTopic);
         }
 
         // Load map rotation
@@ -1029,22 +1199,20 @@ function handleSensorSelection(event) {
 // UI Update Functions
 // ============================================================================
 
-function updateConnectionStatus(connected) {
+function updateConnectionStatus(connected, errorMessage = null) {
     if (connected) {
         elements.mqttStatus.classList.add('online');
-        elements.mqttStatusText.textContent = 'Connected';
-        if (elements.connectBtn) {
-            elements.connectBtn.textContent = 'Disconnect';
-            elements.connectBtn.classList.remove('btn-primary');
-            elements.connectBtn.classList.add('btn-danger');
-        }
+        elements.mqttStatusText.textContent = 'Connected to MQTT';
+        elements.mqttStatusText.title = '';
     } else {
         elements.mqttStatus.classList.remove('online');
-        elements.mqttStatusText.textContent = 'Disconnected';
-        if (elements.connectBtn) {
-            elements.connectBtn.textContent = 'Connect';
-            elements.connectBtn.classList.remove('btn-danger');
-            elements.connectBtn.classList.add('btn-primary');
+        if (errorMessage) {
+            elements.mqttStatusText.textContent = 'Connection failed';
+            elements.mqttStatusText.title = errorMessage;
+            console.error('MQTT connection error:', errorMessage);
+        } else {
+            elements.mqttStatusText.textContent = 'Disconnected from MQTT';
+            elements.mqttStatusText.title = '';
         }
     }
 }
@@ -1173,15 +1341,12 @@ function resetZones() {
 // Event Listeners
 // ============================================================================
 
-// Connect Button - toggle connect/disconnect
-if (elements.connectBtn) {
-    elements.connectBtn.addEventListener('click', () => {
-        if (state.mqtt.connected) {
-            disconnectMQTT();
-        } else {
-            saveCredentials(); // Save credentials when connecting
-            connectMQTT();
-        }
+// Note: Connect button removed - MQTT auto-connects on start
+
+// MQTT Topic Change - auto-reconnect when topic changes
+if (elements.mqttTopic) {
+    elements.mqttTopic.addEventListener('change', (e) => {
+        handleTopicChange(e.target.value);
     });
 }
 
@@ -1271,6 +1436,12 @@ if (elements.moveShapeBtn) {
 if (elements.rotateShapeBtn) {
     elements.rotateShapeBtn.addEventListener('click', rotateSelectedShape);
 }
+if (elements.increaseSizeBtn) {
+    elements.increaseSizeBtn.addEventListener('click', () => resizeSelectedShape(1.1));
+}
+if (elements.decreaseSizeBtn) {
+    elements.decreaseSizeBtn.addEventListener('click', () => resizeSelectedShape(0.9));
+}
 if (elements.deleteShapeBtn) {
     elements.deleteShapeBtn.addEventListener('click', deleteSelectedShape);
 }
@@ -1324,9 +1495,15 @@ elements.zoneCards.forEach((card, index) => {
 // Initialization
 // ============================================================================
 
-function init() {
+async function init() {
+    console.log('[INIT] Starting application...');
 
-    // Load saved credentials from localStorage
+    // Immediately update status to show JS is running
+    if (elements.mqttStatusText) {
+        elements.mqttStatusText.textContent = 'Initializing...';
+    }
+
+    // Load saved room name from localStorage
     loadCredentials();
 
     // Populate sensor selector with saved rooms
@@ -1354,9 +1531,26 @@ function init() {
     }
     animate();
 
-    // User must click Connect button to connect
-    updateConnectionStatus(false);
+    // Connect to backend WebSocket server
+    try {
+        console.log('[INIT] Connecting to WebSocket...');
+        connectWebSocket();
+    } catch (error) {
+        console.error('[INIT] WebSocket connection error:', error);
+        elements.mqttStatusText.textContent = 'WebSocket error';
+    }
+
+    // Update UI based on topic state
+    const topic = elements.mqttTopic.value;
+    if (!topic || !topic.trim()) {
+        elements.mqttStatusText.textContent = 'Enter MQTT topic to connect';
+        elements.mqttStatus.classList.remove('online');
+    }
+
+    console.log('[INIT] Initialization complete');
 }
 
 // Start application
-init();
+init().catch(error => {
+    console.error('[INIT] Fatal error:', error);
+});

@@ -63,7 +63,8 @@ export class StorageManager {
             },
             annotations: config.annotations || {
                 furniture: [],
-                entrances: []
+                entrances: [],
+                edges: []
             },
             mqttTopic: config.mqttTopic || '',
             mapRotation: config.mapRotation || 0,
@@ -122,7 +123,8 @@ export class StorageManager {
     getDefaultAnnotations() {
         return {
             furniture: [],
-            entrances: []
+            entrances: [],
+            edges: []
         };
     }
 

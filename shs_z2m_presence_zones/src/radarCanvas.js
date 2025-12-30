@@ -36,7 +36,10 @@ export class RadarCanvas {
             handle: '#ffffff',
             furniture: 'rgba(139, 148, 158, 0.5)',
             furnitureBorder: '#8b949e',
-            entrance: '#d29922'
+            entrance: '#d29922',
+            edge: 'rgba(80, 80, 80, 0.7)',
+            edgeBorder: '#6e7681',
+            edgePreview: 'rgba(80, 80, 80, 0.4)'
         };
 
         // Drawing state
@@ -44,6 +47,7 @@ export class RadarCanvas {
         this.selectedZoneIndex = null;
         this.selectedFurnitureIndex = null;
         this.selectedEntranceIndex = null;
+        this.selectedEdgeIndex = null;
         this.mapRotation = 0; // 0, 90, 180, 270
 
         // Initialize
@@ -213,6 +217,10 @@ export class RadarCanvas {
         this.selectedEntranceIndex = index;
     }
 
+    setSelectedEdge(index) {
+        this.selectedEdgeIndex = index;
+    }
+
     /**
      * Main draw function - called every frame
      */
@@ -227,6 +235,11 @@ export class RadarCanvas {
             this.ctx.translate(this.width / 2, this.height / 2);
             this.ctx.rotate(this.mapRotation * Math.PI / 180);
             this.ctx.translate(-this.width / 2, -this.height / 2);
+        }
+
+        // Draw edges first (grey-out areas behind everything)
+        if (annotations && annotations.edges) {
+            this.drawEdges(annotations.edges);
         }
 
         // Draw grid
@@ -1009,28 +1022,32 @@ export class RadarCanvas {
      */
     drawPreview(preview) {
         if (preview.type === 'rectangle' && preview.rect) {
-            this.drawRectanglePreview(preview.rect);
+            this.drawRectanglePreview(preview.rect, preview.rect.isEdge);
         } else if (preview.type === 'polygon' && preview.vertices) {
             this.drawPolygonPreview(preview.vertices);
+        } else if (preview.isEdge) {
+            // Direct edge preview from updateEdgePreview
+            this.drawRectanglePreview(preview, true);
         }
     }
 
     /**
      * Draw rectangle preview while drawing
+     * @param {boolean} isEdge - If true, use edge colors instead of zone colors
      */
-    drawRectanglePreview(rect) {
+    drawRectanglePreview(rect, isEdge = false) {
         const x1 = this.toCanvasX(rect.x1);
         const y1 = this.toCanvasY(rect.y1);
         const x2 = this.toCanvasX(rect.x2);
         const y2 = this.toCanvasY(rect.y2);
 
-        // Fill
-        this.ctx.fillStyle = this.COLORS.preview;
+        // Fill - use edge color if drawing an edge
+        this.ctx.fillStyle = isEdge ? this.COLORS.edgePreview : this.COLORS.preview;
         this.ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
 
         // Border (dashed)
         this.ctx.setLineDash([6, 4]);
-        this.ctx.strokeStyle = this.COLORS.previewBorder;
+        this.ctx.strokeStyle = isEdge ? this.COLORS.edgeBorder : this.COLORS.previewBorder;
         this.ctx.lineWidth = 2;
         this.ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
         this.ctx.setLineDash([]);
@@ -1040,7 +1057,7 @@ export class RadarCanvas {
         const height = Math.round(Math.abs(rect.y2 - rect.y1));
         this.drawUprightText(`${width}mm × ${height}mm`, (x1 + x2) / 2, Math.min(y1, y2) - 10, {
             font: '12px monospace',
-            color: this.COLORS.previewBorder
+            color: isEdge ? this.COLORS.edgeBorder : this.COLORS.previewBorder
         });
     }
 
@@ -1146,5 +1163,87 @@ export class RadarCanvas {
         // Distance label
         this.ctx.font = '10px monospace';
         this.ctx.fillText(`${Math.round(target.distance / 10) / 100}m`, x, y + 20);
+    }
+
+    /**
+     * Draw room edge rectangles (grey-out areas)
+     */
+    drawEdges(edges) {
+        if (!edges || edges.length === 0) return;
+
+        edges.forEach((edge, index) => {
+            const isSelected = index === this.selectedEdgeIndex;
+            this.drawEdge(edge, isSelected);
+        });
+    }
+
+    /**
+     * Draw a single edge rectangle
+     */
+    drawEdge(edge, isSelected = false) {
+        const x1 = this.toCanvasX(edge.x1);
+        const y1 = this.toCanvasY(edge.y1);
+        const x2 = this.toCanvasX(edge.x2);
+        const y2 = this.toCanvasY(edge.y2);
+
+        const minX = Math.min(x1, x2);
+        const maxX = Math.max(x1, x2);
+        const minY = Math.min(y1, y2);
+        const maxY = Math.max(y1, y2);
+        const width = maxX - minX;
+        const height = maxY - minY;
+
+        // Fill
+        this.ctx.fillStyle = this.COLORS.edge;
+        this.ctx.fillRect(minX, minY, width, height);
+
+        // Border
+        this.ctx.strokeStyle = isSelected ? this.COLORS.selection : this.COLORS.edgeBorder;
+        this.ctx.lineWidth = isSelected ? 2 : 1;
+        this.ctx.strokeRect(minX, minY, width, height);
+
+        // Draw handles if selected
+        if (isSelected) {
+            this.drawEdgeHandles(edge);
+        }
+    }
+
+    /**
+     * Draw resize handles for selected edge
+     */
+    drawEdgeHandles(edge) {
+        const x1 = this.toCanvasX(edge.x1);
+        const y1 = this.toCanvasY(edge.y1);
+        const x2 = this.toCanvasX(edge.x2);
+        const y2 = this.toCanvasY(edge.y2);
+
+        const minX = Math.min(x1, x2);
+        const maxX = Math.max(x1, x2);
+        const minY = Math.min(y1, y2);
+        const maxY = Math.max(y1, y2);
+        const midX = (minX + maxX) / 2;
+        const midY = (minY + maxY) / 2;
+
+        // 8 handles: corners + midpoints
+        const handles = [
+            { x: minX, y: minY }, // NW
+            { x: maxX, y: minY }, // NE
+            { x: minX, y: maxY }, // SW
+            { x: maxX, y: maxY }, // SE
+            { x: midX, y: minY }, // N
+            { x: midX, y: maxY }, // S
+            { x: minX, y: midY }, // W
+            { x: maxX, y: midY }  // E
+        ];
+
+        handles.forEach(handle => {
+            this.ctx.fillStyle = this.COLORS.handle;
+            this.ctx.strokeStyle = this.COLORS.selection;
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.rect(handle.x - 4, handle.y - 4, 8, 8);
+            this.ctx.fill();
+            this.ctx.stroke();
+        });
     }
 }

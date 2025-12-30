@@ -20,6 +20,7 @@ export class DrawingManager {
         this.selectedZoneIndex = null;
         this.selectedFurnitureIndex = null;
         this.selectedEntranceIndex = null;
+        this.selectedEdgeIndex = null;
         this.selectedHandle = null;
         this.dragOffset = { x: 0, y: 0 };
 
@@ -120,6 +121,7 @@ export class DrawingManager {
                 break;
             case 'draw-rectangle':
             case 'draw-polygon':
+            case 'draw-edge':
                 this.canvas.style.cursor = 'crosshair';
                 break;
             case 'place-furniture':
@@ -322,6 +324,9 @@ export class DrawingManager {
             case 'place-entrance':
                 this.handleEntrancePlacement(sensorCoords);
                 break;
+            case 'draw-edge':
+                this.handleEdgeMouseDown(sensorCoords);
+                break;
         }
     }
 
@@ -390,6 +395,20 @@ export class DrawingManager {
                 // Don't auto-drag - require explicit Move button click
                 if (this.callbacks.onZoneSelect) {
                     this.callbacks.onZoneSelect(i);
+                }
+                return;
+            }
+        }
+
+        // Check for edge click (edges are drawn behind zones, so check last)
+        const edges = this.state.annotations.edges || [];
+        for (let i = edges.length - 1; i >= 0; i--) {
+            const edge = edges[i];
+            if (this.isPointInEdge(sensorCoords.x, sensorCoords.y, edge)) {
+                this.clearOtherSelections('edge');
+                this.selectedEdgeIndex = i;
+                if (this.callbacks.onEdgeSelect) {
+                    this.callbacks.onEdgeSelect(i, edge);
                 }
                 return;
             }
@@ -489,6 +508,12 @@ export class DrawingManager {
             this.selectedEntranceIndex = null;
             if (this.callbacks.onEntranceSelect) {
                 this.callbacks.onEntranceSelect(null);
+            }
+        }
+        if (keepType !== 'edge' && this.selectedEdgeIndex !== null) {
+            this.selectedEdgeIndex = null;
+            if (this.callbacks.onEdgeSelect) {
+                this.callbacks.onEdgeSelect(null);
             }
         }
     }
@@ -606,6 +631,28 @@ export class DrawingManager {
                     this.updatePolygonPreview(sensorCoords);
                 }
                 break;
+            case 'draw-edge':
+                if (this.isDrawing) {
+                    this.updateEdgePreview(sensorCoords);
+                }
+                break;
+        }
+    }
+
+    /**
+     * Update edge drawing preview
+     */
+    updateEdgePreview(sensorCoords) {
+        this.previewRect = {
+            x1: Math.round(this.startPoint.x / 100) * 100,
+            y1: Math.round(this.startPoint.y / 100) * 100,
+            x2: Math.round(sensorCoords.x / 100) * 100,
+            y2: Math.round(sensorCoords.y / 100) * 100,
+            isEdge: true  // Flag to identify as edge preview
+        };
+
+        if (this.callbacks.onPreviewUpdate) {
+            this.callbacks.onPreviewUpdate(this.previewRect);
         }
     }
 
@@ -965,6 +1012,11 @@ export class DrawingManager {
                     this.finishRectangle(sensorCoords);
                 }
                 break;
+            case 'draw-edge':
+                if (this.isDrawing) {
+                    this.completeEdgeDrawing();
+                }
+                break;
         }
     }
 
@@ -1273,5 +1325,90 @@ export class DrawingManager {
             selectedZoneIndex: this.selectedZoneIndex,
             polygonVertices: this.polygonVertices
         };
+    }
+
+    // ========================================================================
+    // Edge Drawing Functions
+    // ========================================================================
+
+    /**
+     * Check if a point is inside an edge rectangle
+     */
+    isPointInEdge(sensorX, sensorY, edge) {
+        const minX = Math.min(edge.x1, edge.x2);
+        const maxX = Math.max(edge.x1, edge.x2);
+        const minY = Math.min(edge.y1, edge.y2);
+        const maxY = Math.max(edge.y1, edge.y2);
+        return sensorX >= minX && sensorX <= maxX && sensorY >= minY && sensorY <= maxY;
+    }
+
+    /**
+     * Handle edge drawing mouse down - start drawing an edge rectangle
+     */
+    handleEdgeMouseDown(sensorCoords) {
+        this.isDrawing = true;
+        this.startPoint = sensorCoords;
+        this.currentPoint = sensorCoords;
+        this.drawingEdge = true;
+    }
+
+    /**
+     * Complete edge drawing
+     */
+    completeEdgeDrawing() {
+        if (!this.startPoint || !this.currentPoint) return;
+
+        // Snap to grid (100mm)
+        const x1 = Math.round(this.startPoint.x / 100) * 100;
+        const y1 = Math.round(this.startPoint.y / 100) * 100;
+        const x2 = Math.round(this.currentPoint.x / 100) * 100;
+        const y2 = Math.round(this.currentPoint.y / 100) * 100;
+
+        // Minimum size check
+        if (Math.abs(x2 - x1) < 100 || Math.abs(y2 - y1) < 100) {
+            this.resetDrawingState();
+            this.drawingEdge = false;
+            return;
+        }
+
+        // Create edge
+        const edge = {
+            id: `edge_${Date.now()}`,
+            x1: Math.min(x1, x2),
+            y1: Math.min(y1, y2),
+            x2: Math.max(x1, x2),
+            y2: Math.max(y1, y2)
+        };
+
+        // Initialize edges array if needed
+        if (!this.state.annotations.edges) {
+            this.state.annotations.edges = [];
+        }
+
+        this.state.annotations.edges.push(edge);
+
+        this.resetDrawingState();
+        this.drawingEdge = false;
+
+        // Switch back to select mode
+        this.setMode('select');
+
+        if (this.callbacks.onEdgePlaced) {
+            this.callbacks.onEdgePlaced(edge);
+        }
+    }
+
+    /**
+     * Delete selected edge
+     */
+    deleteSelectedEdge() {
+        if (this.selectedEdgeIndex === null) return;
+
+        if (this.callbacks.onEdgeDeleted) {
+            this.callbacks.onEdgeDeleted(this.selectedEdgeIndex);
+        }
+
+        this.state.annotations.edges.splice(this.selectedEdgeIndex, 1);
+        this.selectedEdgeIndex = null;
     }
 }
