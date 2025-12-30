@@ -973,6 +973,14 @@ export class DrawingManager {
     }
 
     /**
+     * Check if furniture type is edge-mountable (can be placed at canvas boundary)
+     */
+    isEdgeMountable(type) {
+        const edgeTypes = ['window', 'radiator', 'tv'];
+        return edgeTypes.includes(type);
+    }
+
+    /**
      * Move furniture to new position (drag mode - legacy)
      */
     moveFurniture(sensorCoords) {
@@ -981,11 +989,19 @@ export class DrawingManager {
         const newX = sensorCoords.x - this.dragOffset.x;
         const newY = sensorCoords.y - this.dragOffset.y;
 
-        // Clamp to sensor range
+        // Clamp to sensor range - edge-mountable items can go to the boundary
         const halfW = furniture.width / 2;
         const halfH = furniture.height / 2;
-        furniture.x = Math.max(-3000 + halfW, Math.min(3000 - halfW, Math.round(newX / 50) * 50));
-        furniture.y = Math.max(halfH, Math.min(6000 - halfH, Math.round(newY / 50) * 50));
+        const isEdge = this.isEdgeMountable(furniture.type);
+
+        // Edge items can have their center at the boundary (allowing flush placement)
+        const xMin = isEdge ? -3000 : -3000 + halfW;
+        const xMax = isEdge ? 3000 : 3000 - halfW;
+        const yMin = isEdge ? 0 : halfH;
+        const yMax = isEdge ? 6000 : 6000 - halfH;
+
+        furniture.x = Math.max(xMin, Math.min(xMax, Math.round(newX / 50) * 50));
+        furniture.y = Math.max(yMin, Math.min(yMax, Math.round(newY / 50) * 50));
 
         if (this.callbacks.onFurnitureUpdate) {
             this.callbacks.onFurnitureUpdate(this.selectedFurnitureIndex, furniture);
@@ -999,11 +1015,18 @@ export class DrawingManager {
         const furniture = this.state.annotations.furniture[this.movingItemIndex];
         if (!furniture) return;
 
-        // Snap to grid and clamp
+        // Snap to grid and clamp - edge-mountable items can go to the boundary
         const halfW = furniture.width / 2;
         const halfH = furniture.height / 2;
-        furniture.x = Math.max(-3000 + halfW, Math.min(3000 - halfW, Math.round(sensorCoords.x / 50) * 50));
-        furniture.y = Math.max(halfH, Math.min(6000 - halfH, Math.round(sensorCoords.y / 50) * 50));
+        const isEdge = this.isEdgeMountable(furniture.type);
+
+        const xMin = isEdge ? -3000 : -3000 + halfW;
+        const xMax = isEdge ? 3000 : 3000 - halfW;
+        const yMin = isEdge ? 0 : halfH;
+        const yMax = isEdge ? 6000 : 6000 - halfH;
+
+        furniture.x = Math.max(xMin, Math.min(xMax, Math.round(sensorCoords.x / 50) * 50));
+        furniture.y = Math.max(yMin, Math.min(yMax, Math.round(sensorCoords.y / 50) * 50));
 
         // Live update without triggering save
         this.radarCanvas.drawFrame(

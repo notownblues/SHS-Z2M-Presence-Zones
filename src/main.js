@@ -253,6 +253,8 @@ const drawingManager = new DrawingManager(radarCanvas, state, {
     onFurniturePlaced: (furniture) => {
         radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
         triggerAutoSave();
+        // Position Done button above placed furniture
+        positionDoneButtonAtObject(furniture.x, furniture.y);
     },
     onFurnitureSelect: (index, furniture) => {
         radarCanvas.setSelectedFurniture(index);
@@ -290,6 +292,8 @@ const drawingManager = new DrawingManager(radarCanvas, state, {
     onEntrancePlaced: (entrance) => {
         radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
         triggerAutoSave();
+        // Position Done button above placed entrance
+        positionDoneButtonAtObject(entrance.x, entrance.y);
     },
     onEntranceSelect: (index, entrance) => {
         radarCanvas.setSelectedEntrance(index);
@@ -398,6 +402,38 @@ function updatePlacementDoneVisibility(mode) {
 
     const showDone = ['draw-rectangle', 'draw-polygon', 'place-furniture', 'place-entrance', 'moving'].includes(mode);
     elements.placementDone.style.display = showDone ? 'flex' : 'none';
+
+    // Reset to center when showing
+    if (showDone) {
+        elements.placementDone.style.top = '50%';
+        elements.placementDone.style.left = '50%';
+    }
+}
+
+/**
+ * Position the Done button above a placed object
+ * @param {number} sensorX - X coordinate in sensor space (mm)
+ * @param {number} sensorY - Y coordinate in sensor space (mm)
+ */
+function positionDoneButtonAtObject(sensorX, sensorY) {
+    if (!elements.placementDone || !radarCanvas) return;
+
+    // Convert sensor coordinates to canvas coordinates
+    const canvasX = radarCanvas.toCanvasX(sensorX);
+    const canvasY = radarCanvas.toCanvasY(sensorY);
+
+    // Get canvas dimensions
+    const canvasRect = elements.radarCanvas.getBoundingClientRect();
+
+    // Position button above the object (offset by 80px)
+    const buttonY = Math.max(60, canvasY - 80);
+
+    // Convert to percentage of canvas size
+    const leftPercent = (canvasX / canvasRect.width) * 100;
+    const topPercent = (buttonY / canvasRect.height) * 100;
+
+    elements.placementDone.style.left = `${leftPercent}%`;
+    elements.placementDone.style.top = `${topPercent}%`;
 }
 
 /**
@@ -1705,7 +1741,7 @@ if (elements.darkModeToggle) {
     elements.darkModeToggle.addEventListener('click', toggleTheme);
 }
 
-// Furniture Sidebar Items
+// Furniture Sidebar Items - Click to place
 document.querySelectorAll('.furniture-item').forEach(btn => {
     btn.addEventListener('click', () => {
         const mode = btn.dataset.mode;
@@ -1720,7 +1756,91 @@ document.querySelectorAll('.furniture-item').forEach(btn => {
             drawingManager.setMode('place-furniture');
         }
     });
+
+    // Make furniture items draggable
+    btn.setAttribute('draggable', 'true');
+    btn.addEventListener('dragstart', (e) => {
+        const furniture = btn.dataset.furniture;
+        if (furniture) {
+            e.dataTransfer.setData('furniture-type', furniture);
+            e.dataTransfer.effectAllowed = 'copy';
+        }
+    });
 });
+
+// Canvas drag-drop for furniture placement
+if (elements.radarCanvas) {
+    elements.radarCanvas.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    });
+
+    elements.radarCanvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const furnitureType = e.dataTransfer.getData('furniture-type');
+        if (!furnitureType || !radarCanvas) return;
+
+        // Get canvas coordinates from drop position
+        const rect = elements.radarCanvas.getBoundingClientRect();
+        const scaleX = elements.radarCanvas.width / rect.width;
+        const scaleY = elements.radarCanvas.height / rect.height;
+        const canvasX = (e.clientX - rect.left) * scaleX;
+        const canvasY = (e.clientY - rect.top) * scaleY;
+
+        // Convert to sensor coordinates (accounting for map rotation)
+        const cx = radarCanvas.width / 2;
+        const cy = radarCanvas.height / 2;
+        const rotation = radarCanvas.mapRotation || 0;
+        const angle = -rotation * Math.PI / 180;
+        const dx = canvasX - cx;
+        const dy = canvasY - cy;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const unrotatedX = cx + dx * cos - dy * sin;
+        const unrotatedY = cy + dx * sin + dy * cos;
+        const sensorX = radarCanvas.toSensorX(unrotatedX);
+        const sensorY = radarCanvas.toSensorY(unrotatedY);
+
+        // Get default size for this furniture type
+        const sizes = {
+            chair: { width: 700, height: 700 },
+            'dining-chair': { width: 450, height: 450 },
+            sofa: { width: 1800, height: 800 },
+            bed: { width: 2000, height: 1500 },
+            table: { width: 1200, height: 800 },
+            desk: { width: 1400, height: 700 },
+            'bedside-table': { width: 500, height: 500 },
+            cabinet: { width: 800, height: 500 },
+            drawers: { width: 800, height: 500 },
+            wardrobe: { width: 1200, height: 600 },
+            tv: { width: 1400, height: 200 },
+            speaker: { width: 400, height: 600 },
+            fridge: { width: 700, height: 700 },
+            radiator: { width: 1000, height: 200 },
+            fan: { width: 500, height: 500 },
+            window: { width: 1200, height: 200 },
+            lamp: { width: 350, height: 350 },
+            plant: { width: 400, height: 400 }
+        };
+        const size = sizes[furnitureType] || { width: 500, height: 500 };
+
+        // Create furniture at drop location
+        const mapRotation = radarCanvas.mapRotation || 0;
+        const furniture = {
+            id: `furniture_${Date.now()}`,
+            type: furnitureType,
+            x: Math.round(sensorX / 100) * 100,
+            y: Math.round(sensorY / 100) * 100,
+            rotation: mapRotation,
+            width: size.width,
+            height: size.height
+        };
+
+        state.annotations.furniture.push(furniture);
+        storageManager.saveAnnotations(state.annotations);
+        radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+    });
+}
 
 // ============================================================================
 // Initialization

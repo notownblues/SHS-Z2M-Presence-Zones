@@ -1342,7 +1342,7 @@ export class RadarCanvas {
         // Label (upright) - centered inside the zone
         const centerX = (x1 + x2) / 2;
         const centerY = (y1 + y2) / 2;
-        const zoneType = zone.zoneType === 'interference' ? 'Interf.' : 'Detect.';
+        const zoneType = zone.zoneType === 'interference' ? 'Interference' : 'Detection';
         // Draw zone number
         this.drawUprightText(`Zone ${index + 1}`, centerX, centerY - 8, {
             font: 'bold 12px sans-serif',
@@ -1394,7 +1394,7 @@ export class RadarCanvas {
         // Label (upright) - centered inside the zone
         const centerX = (x1 + x2) / 2;
         const centerY = (y1 + y2) / 2;
-        const zoneType = zone.zoneType === 'interference' ? 'Interf.' : 'Detect.';
+        const zoneType = zone.zoneType === 'interference' ? 'Interference' : 'Detection';
         // Draw zone number
         this.drawUprightText(`Zone ${index + 1}`, centerX, centerY - 8, {
             font: 'bold 12px sans-serif',

@@ -368,7 +368,7 @@ body {
     display: flex;
     gap: 4px;
     padding: 4px;
-    background-color: rgba(22, 27, 34, 0.95);
+    background-color: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
@@ -409,14 +409,16 @@ body {
 
 .placement-done {
     position: absolute;
-    bottom: var(--spacing-lg);
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-xs);
     z-index: 100;
+    pointer-events: auto;
+    transition: top 0.15s ease, left 0.15s ease;
 }
 
 .done-btn {
@@ -432,19 +434,19 @@ body {
     font-weight: 600;
     cursor: pointer;
     box-shadow: var(--shadow-md);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .done-btn:hover {
     background-color: #2ea043;
-    transform: translateY(-1px);
     box-shadow: var(--shadow-lg);
 }
 
 .done-hint {
     font-size: 0.7rem;
-    color: var(--text-muted);
-    background-color: rgba(22, 27, 34, 0.8);
+    color: var(--text-secondary);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
     padding: 2px 8px;
     border-radius: var(--radius-sm);
 }
