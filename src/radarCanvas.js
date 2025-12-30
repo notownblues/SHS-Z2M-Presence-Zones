@@ -148,16 +148,18 @@ export class RadarCanvas {
                 return { x: sensorX, y: sensorY };
             case 90:
                 // Sensor on left looking right
-                // sensor +X becomes visual down, sensor +Y becomes visual right
-                return { x: sensorY - 3000, y: -sensorX + 3000 };
+                // sensor LEFT (X-) = visual TOP, sensor RIGHT (X+) = visual BOTTOM
+                // sensor NEAR (Y small) = visual LEFT, sensor FAR (Y large) = visual RIGHT
+                return { x: sensorY - 3000, y: sensorX + 3000 };
             case 180:
                 // Sensor on top looking down
-                // DO NOT flip X - keep sensor X as room X
-                // sensor +Y should go DOWN from top (invert Y so Y=0 is at top)
+                // Keep X same, invert Y
                 return { x: sensorX, y: Y_MAX - sensorY };
             case 270:
                 // Sensor on right looking left
-                return { x: -(sensorY - 3000), y: sensorX + 3000 };
+                // sensor LEFT (X-) = visual BOTTOM, sensor RIGHT (X+) = visual TOP
+                // sensor NEAR (Y small) = visual RIGHT, sensor FAR (Y large) = visual LEFT
+                return { x: -(sensorY - 3000), y: -sensorX + 3000 };
             default:
                 return { x: sensorX, y: sensorY };
         }
@@ -174,14 +176,16 @@ export class RadarCanvas {
             case 0:
                 return { x: roomX, y: roomY };
             case 90:
-                // Inverse of 90° transform
-                return { x: -(roomY - 3000), y: roomX + 3000 };
+                // Inverse of 90° transform: x = sensorY - 3000, y = sensorX + 3000
+                // So: sensorX = roomY - 3000, sensorY = roomX + 3000
+                return { x: roomY - 3000, y: roomX + 3000 };
             case 180:
-                // Inverse of 180° transform: x = roomX (no flip), y = Y_MAX - roomY
+                // Inverse of 180° transform
                 return { x: roomX, y: Y_MAX - roomY };
             case 270:
-                // Inverse of 270° transform
-                return { x: roomY - 3000, y: -(roomX - 3000) };
+                // Inverse of 270° transform: x = 3000 - sensorY, y = 3000 - sensorX
+                // So: sensorY = 3000 - roomX, sensorX = 3000 - roomY
+                return { x: 3000 - roomY, y: 3000 - roomX };
             default:
                 return { x: roomX, y: roomY };
         }

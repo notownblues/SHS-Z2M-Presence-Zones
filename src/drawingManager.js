@@ -166,32 +166,12 @@ export class DrawingManager {
      * Used for both drawing zones and hit detection.
      */
     toSensorCoords(canvasX, canvasY) {
-        const rotation = this.radarCanvas.mapRotation || 0;
+        // Undo the visual rotation to get the unrotated canvas position
         const cx = this.radarCanvas.width / 2;
         const cy = this.radarCanvas.height / 2;
+        const rotation = this.radarCanvas.mapRotation || 0;
+        const angle = -rotation * Math.PI / 180; // Negative to inverse rotate
 
-        // For 90° rotations, use the inverse transform that matches transformSensorToRoom
-        // This handles the asymmetric sensor coordinate system (X: -3000 to 3000, Y: 0 to 6000)
-        if (rotation === 0 || rotation === 90 || rotation === 180 || rotation === 270) {
-            // First undo the canvas rotation to get unrotated canvas position
-            const angle = -rotation * Math.PI / 180;
-            const dx = canvasX - cx;
-            const dy = canvasY - cy;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            const unrotatedX = cx + dx * cos - dy * sin;
-            const unrotatedY = cy + dx * sin + dy * cos;
-
-            // Convert to "room" coordinates (what transformSensorToRoom produces)
-            const roomX = this.radarCanvas.toSensorX(unrotatedX);
-            const roomY = this.radarCanvas.toSensorY(unrotatedY);
-
-            // Use the inverse transform to get sensor coordinates
-            return this.radarCanvas.transformRoomToSensor(roomX, roomY);
-        }
-
-        // For non-90° angles, use continuous rotation
-        const angle = -rotation * Math.PI / 180;
         const dx = canvasX - cx;
         const dy = canvasY - cy;
         const cos = Math.cos(angle);
@@ -199,6 +179,7 @@ export class DrawingManager {
         const unrotatedX = cx + dx * cos - dy * sin;
         const unrotatedY = cy + dx * sin + dy * cos;
 
+        // Convert to sensor coordinates
         return {
             x: this.radarCanvas.toSensorX(unrotatedX),
             y: this.radarCanvas.toSensorY(unrotatedY)
@@ -211,39 +192,18 @@ export class DrawingManager {
      * the same transformation here for consistent hit detection.
      */
     toCanvasCoords(sensorX, sensorY) {
-        const rotation = this.radarCanvas.mapRotation || 0;
-        const cx = this.radarCanvas.width / 2;
-        const cy = this.radarCanvas.height / 2;
-
-        // For 90° rotations, use the transform that handles the asymmetric sensor coordinate system
-        if (rotation === 0 || rotation === 90 || rotation === 180 || rotation === 270) {
-            // First transform sensor coords to room coords (handles asymmetry)
-            const roomCoords = this.radarCanvas.transformSensorToRoom(sensorX, sensorY);
-
-            // Get unrotated canvas coords from room coords
-            const unrotatedX = this.radarCanvas.toCanvasX(roomCoords.x);
-            const unrotatedY = this.radarCanvas.toCanvasY(roomCoords.y);
-
-            // Apply the visual rotation
-            const angle = rotation * Math.PI / 180;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            const dx = unrotatedX - cx;
-            const dy = unrotatedY - cy;
-
-            return {
-                x: cx + dx * cos - dy * sin,
-                y: cy + dx * sin + dy * cos
-            };
-        }
-
-        // For non-90° angles, use continuous rotation
+        // First get unrotated canvas coords
         const unrotatedX = this.radarCanvas.toCanvasX(sensorX);
         const unrotatedY = this.radarCanvas.toCanvasY(sensorY);
 
+        // Apply the same visual rotation as the canvas context
+        const cx = this.radarCanvas.width / 2;
+        const cy = this.radarCanvas.height / 2;
+        const rotation = this.radarCanvas.mapRotation || 0;
         const angle = rotation * Math.PI / 180;
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
+
         const dx = unrotatedX - cx;
         const dy = unrotatedY - cy;
 
