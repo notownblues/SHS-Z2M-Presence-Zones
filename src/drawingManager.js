@@ -1363,12 +1363,15 @@ export class DrawingManager {
     handleFurniturePlacement(sensorCoords) {
         if (!this.state.canvas.placingFurniture) return;
 
+        // Set initial rotation to match map rotation so furniture appears upright
+        const mapRotation = this.radarCanvas.mapRotation || 0;
+
         const furniture = {
             id: `furniture_${Date.now()}`,
             type: this.state.canvas.placingFurniture,
             x: Math.round(sensorCoords.x / 100) * 100,
             y: Math.round(sensorCoords.y / 100) * 100,
-            rotation: 0,
+            rotation: mapRotation,
             width: this.getFurnitureDefaultSize(this.state.canvas.placingFurniture).width,
             height: this.getFurnitureDefaultSize(this.state.canvas.placingFurniture).height
         };

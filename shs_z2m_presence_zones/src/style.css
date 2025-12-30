@@ -102,6 +102,18 @@ body {
     color: var(--text-primary);
 }
 
+.header-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
 .connection-status {
     display: flex;
     align-items: center;
@@ -827,14 +839,28 @@ body {
 
 .zone-card-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    justify-content: space-between;
     gap: var(--spacing-sm);
+}
+
+.zone-card-left {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.zone-card-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .zone-card-color {
     width: 12px;
     height: 12px;
     border-radius: 2px;
+    margin-top: 3px;
 }
 
 .zone-card-color.zone1 { background-color: var(--color-primary); }
@@ -842,7 +868,6 @@ body {
 .zone-card-color.zone3 { background-color: var(--color-danger); }
 
 .zone-card-title {
-    flex: 1;
     font-weight: 500;
     font-size: 0.875rem;
 }
@@ -857,17 +882,12 @@ body {
     color: var(--text-muted);
 }
 
-.zone-card-type {
-    margin-top: var(--spacing-xs);
-    padding-left: calc(12px + var(--spacing-sm));
-}
-
 .zone-type-select {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    padding: 2px var(--spacing-xs);
+    background-color: transparent;
+    border: none;
     border-radius: var(--radius-sm);
-    color: var(--text-secondary);
+    color: var(--text-muted);
     font-size: 0.7rem;
     cursor: pointer;
     transition: all 0.15s ease;

@@ -609,31 +609,58 @@ export class RadarCanvas {
 
     drawSimpleDiningChair(x, y, w, h) {
         const r = 2;
+        const cx = x + w / 2;
+        const cy = y + h / 2;
 
-        // Chair back (top part)
-        this.ctx.fillStyle = '#8B5A2B';
-        this.roundRect(x + w * 0.15, y, w * 0.7, h * 0.2, r);
-        this.ctx.fill();
-
-        // Chair back vertical supports
+        // Top-down view of dining chair
+        // Chair seat (square with rounded corners)
         this.ctx.fillStyle = '#D4A574';
-        this.roundRect(x + w * 0.2, y + h * 0.2, w * 0.6, h * 0.45, r);
+        this.roundRect(x + w * 0.15, y + h * 0.3, w * 0.7, h * 0.6, r);
         this.ctx.fill();
 
-        // Chair seat
-        this.ctx.fillStyle = '#8B5A2B';
-        this.roundRect(x + w * 0.05, y + h * 0.65, w * 0.9, h * 0.3, r);
-        this.ctx.fill();
-
-        // Seat cushion
+        // Seat cushion (slightly smaller, darker)
         this.ctx.fillStyle = '#C4956A';
-        this.roundRect(x + w * 0.15, y + h * 0.72, w * 0.7, h * 0.18, r);
+        this.roundRect(x + w * 0.22, y + h * 0.37, w * 0.56, h * 0.46, r);
+        this.ctx.fill();
+
+        // Chair back (curved top edge - viewed from above)
+        this.ctx.fillStyle = '#8B5A2B';
+        this.roundRect(x + w * 0.1, y + h * 0.05, w * 0.8, h * 0.2, r);
+        this.ctx.fill();
+
+        // Back slats (vertical lines on backrest)
+        this.ctx.strokeStyle = '#6B4423';
+        this.ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+            const slotX = x + w * (0.3 + i * 0.2);
+            this.ctx.beginPath();
+            this.ctx.moveTo(slotX, y + h * 0.08);
+            this.ctx.lineTo(slotX, y + h * 0.22);
+            this.ctx.stroke();
+        }
+
+        // Four legs (corners)
+        this.ctx.fillStyle = '#5D4037';
+        const legSize = Math.min(w, h) * 0.1;
+        // Front legs
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.22, y + h * 0.82, legSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.78, y + h * 0.82, legSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        // Back legs
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.22, y + h * 0.38, legSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x + w * 0.78, y + h * 0.38, legSize, 0, Math.PI * 2);
         this.ctx.fill();
 
         // Border
-        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
         this.ctx.lineWidth = 1;
-        this.roundRect(x + w * 0.05, y, w * 0.9, h * 0.95, r);
+        this.roundRect(x + w * 0.1, y + h * 0.05, w * 0.8, h * 0.85, r);
         this.ctx.stroke();
     }
 
@@ -1264,18 +1291,6 @@ export class RadarCanvas {
         this.drawUprightText('SHS01', x, y - 20, {
             font: '12px sans-serif',
             color: this.COLORS.sensor
-        });
-
-        // Debug: Show L/R indicators to verify rotation
-        // These show the SENSOR's left/right (from sensor's perspective)
-        // After rotation, sensor's right should appear on room's left when sensor is at top
-        this.drawUprightText('S-LEFT', this.toCanvasX(-2500), this.toCanvasY(3000), {
-            font: '10px sans-serif',
-            color: '#ff6b6b'
-        });
-        this.drawUprightText('S-RIGHT', this.toCanvasX(2500), this.toCanvasY(3000), {
-            font: '10px sans-serif',
-            color: '#4ecdc4'
         });
     }
 

@@ -10,19 +10,22 @@
     <div class="app">
         <!-- Header -->
         <header class="header">
-            <div class="connection-status">
-                <span class="status-indicator" id="mqttStatus"></span>
-                <span id="mqttStatusText">Disconnected from MQTT</span>
+            <span class="header-title">Zone Configurator</span>
+            <div class="header-right">
+                <div class="connection-status">
+                    <span class="status-indicator" id="mqttStatus"></span>
+                    <span id="mqttStatusText">Disconnected from MQTT</span>
+                </div>
+                <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle Dark/Light Mode">
+                    <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
             </div>
-            <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle Dark/Light Mode">
-                <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="5"/>
-                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-                </svg>
-                <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-            </button>
         </header>
 
         <!-- Main Content -->
@@ -427,52 +430,58 @@
                     <div class="zone-cards">
                         <div class="zone-card" id="zone1Card" data-zone="1">
                             <div class="zone-card-header">
-                                <div class="zone-card-color zone1"></div>
-                                <span class="zone-card-title">Zone 1</span>
+                                <div class="zone-card-left">
+                                    <div class="zone-card-color zone1"></div>
+                                    <div class="zone-card-title-group">
+                                        <span class="zone-card-title">Zone 1</span>
+                                        <select id="zone1Type" class="zone-type-select" title="Zone Type">
+                                            <option value="detection">Detection</option>
+                                            <option value="interference">Interference</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <span id="zone1Status" class="status-badge">Clear</span>
                             </div>
                             <div class="zone-card-info">
                                 <span id="zone1Info" class="zone-info-text">Click to draw on map</span>
                             </div>
-                            <div class="zone-card-type">
-                                <select id="zone1Type" class="zone-type-select" title="Zone Type">
-                                    <option value="detection">Detection</option>
-                                    <option value="interference">Interference</option>
-                                </select>
-                            </div>
                         </div>
 
                         <div class="zone-card" id="zone2Card" data-zone="2">
                             <div class="zone-card-header">
-                                <div class="zone-card-color zone2"></div>
-                                <span class="zone-card-title">Zone 2</span>
+                                <div class="zone-card-left">
+                                    <div class="zone-card-color zone2"></div>
+                                    <div class="zone-card-title-group">
+                                        <span class="zone-card-title">Zone 2</span>
+                                        <select id="zone2Type" class="zone-type-select" title="Zone Type">
+                                            <option value="detection">Detection</option>
+                                            <option value="interference">Interference</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <span id="zone2Status" class="status-badge">Clear</span>
                             </div>
                             <div class="zone-card-info">
                                 <span id="zone2Info" class="zone-info-text">Click to draw on map</span>
                             </div>
-                            <div class="zone-card-type">
-                                <select id="zone2Type" class="zone-type-select" title="Zone Type">
-                                    <option value="detection">Detection</option>
-                                    <option value="interference">Interference</option>
-                                </select>
-                            </div>
                         </div>
 
                         <div class="zone-card" id="zone3Card" data-zone="3">
                             <div class="zone-card-header">
-                                <div class="zone-card-color zone3"></div>
-                                <span class="zone-card-title">Zone 3</span>
+                                <div class="zone-card-left">
+                                    <div class="zone-card-color zone3"></div>
+                                    <div class="zone-card-title-group">
+                                        <span class="zone-card-title">Zone 3</span>
+                                        <select id="zone3Type" class="zone-type-select" title="Zone Type">
+                                            <option value="detection">Detection</option>
+                                            <option value="interference">Interference</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <span id="zone3Status" class="status-badge">Clear</span>
                             </div>
                             <div class="zone-card-info">
                                 <span id="zone3Info" class="zone-info-text">Click to draw on map</span>
-                            </div>
-                            <div class="zone-card-type">
-                                <select id="zone3Type" class="zone-type-select" title="Zone Type">
-                                    <option value="detection">Detection</option>
-                                    <option value="interference">Interference</option>
-                                </select>
                             </div>
                         </div>
                     </div>
