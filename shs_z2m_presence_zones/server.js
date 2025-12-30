@@ -52,6 +52,12 @@ loadConfig();
 const app = express();
 const server = createServer(app);
 
+// Request logging middleware
+app.use((req, res, next) => {
+    console.log(`[HTTP] ${req.method} ${req.url}`);
+    next();
+});
+
 // Serve static files
 const staticPath = path.join(__dirname, 'www');
 console.log(`[SERVER] Serving static files from: ${staticPath}`);
@@ -71,6 +77,11 @@ app.get('/config.json', (req, res) => {
 
 // WebSocket server for frontend connections
 const wss = new WebSocketServer({ server, path: '/ws' });
+
+// Log WebSocket upgrade attempts
+server.on('upgrade', (request, socket, head) => {
+    console.log(`[WS] Upgrade request for: ${request.url}`);
+});
 
 // Track MQTT client and subscriptions
 let mqttClient = null;
@@ -261,7 +272,7 @@ wss.on('connection', (ws) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.2.0`);
+    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.2.1`);
     console.log(`[SERVER] Listening on port ${PORT}`);
     console.log(`[SERVER] MQTT broker: ws://${config.mqtt_host}:${config.mqtt_ws_port}`);
 });

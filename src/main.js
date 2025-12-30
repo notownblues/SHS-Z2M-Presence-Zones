@@ -643,9 +643,15 @@ function updateZoneCards() {
  * Connect to backend WebSocket server
  */
 function connectWebSocket() {
-    // Build WebSocket URL (same host, /ws path)
+    // Build WebSocket URL - handle HA ingress path
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    // Get the base path (for HA ingress, this includes /api/hassio_ingress/xxxx/)
+    let basePath = window.location.pathname;
+    // Remove trailing slash and any filename
+    if (basePath.endsWith('/')) {
+        basePath = basePath.slice(0, -1);
+    }
+    const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
 
     console.log('Connecting to backend WebSocket:', wsUrl);
     elements.mqttStatusText.textContent = 'Connecting...';
