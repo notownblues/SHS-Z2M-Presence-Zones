@@ -421,15 +421,14 @@ function showShapeActions(shape) {
     if (!elements.shapeActions || !shape) return;
 
     // Get shape bounds in sensor coordinates
-    // For furniture/entrances with center point + dimensions, calculate bounds
     let sensorX1, sensorY1, sensorX2, sensorY2;
 
     if (shape.x1 !== undefined) {
         // Zones and edges have x1,y1,x2,y2
-        sensorX1 = shape.x1;
-        sensorY1 = shape.y1;
-        sensorX2 = shape.x2;
-        sensorY2 = shape.y2;
+        sensorX1 = Math.min(shape.x1, shape.x2);
+        sensorY1 = Math.min(shape.y1, shape.y2);
+        sensorX2 = Math.max(shape.x1, shape.x2);
+        sensorY2 = Math.max(shape.y1, shape.y2);
     } else if (shape.width !== undefined && shape.height !== undefined) {
         // Furniture has center point + width/height
         const halfW = shape.width / 2;
@@ -439,24 +438,22 @@ function showShapeActions(shape) {
         sensorX2 = shape.x + halfW;
         sensorY2 = shape.y + halfH;
     } else {
-        // Entrances - just use center point with small radius
+        // Entrances - use center point with small radius
         sensorX1 = shape.x - 200;
         sensorY1 = shape.y - 200;
         sensorX2 = shape.x + 200;
         sensorY2 = shape.y + 200;
     }
 
-    // Convert to unrotated canvas coordinates
-    const canvasX1 = radarCanvas.toCanvasX(sensorX1);
-    const canvasY1 = radarCanvas.toCanvasY(sensorY1);
-    const canvasX2 = radarCanvas.toCanvasX(sensorX2);
-    const canvasY2 = radarCanvas.toCanvasY(sensorY2);
+    // Convert all 4 corners to canvas coordinates
+    const corners = [
+        { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY1) },
+        { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY1) },
+        { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY2) },
+        { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY2) }
+    ];
 
-    // Calculate center and top in unrotated canvas coords
-    const unrotatedCenterX = (canvasX1 + canvasX2) / 2;
-    const unrotatedTopY = Math.min(canvasY1, canvasY2); // Lower Y = higher on screen
-
-    // Apply rotation to get visual position
+    // Apply map rotation to all corners
     const rotation = state.ui.mapRotation || 0;
     const cx = radarCanvas.width / 2;
     const cy = radarCanvas.height / 2;
@@ -464,21 +461,33 @@ function showShapeActions(shape) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    // Rotate center point
-    const dx = unrotatedCenterX - cx;
-    const dy = unrotatedTopY - cy;
-    const rotatedCenterX = cx + dx * cos - dy * sin;
-    const rotatedTopY = cy + dx * sin + dy * cos;
+    const rotatedCorners = corners.map(corner => {
+        const dx = corner.x - cx;
+        const dy = corner.y - cy;
+        return {
+            x: cx + dx * cos - dy * sin,
+            y: cy + dx * sin + dy * cos
+        };
+    });
+
+    // Find the visual bounding box after rotation
+    const minX = Math.min(...rotatedCorners.map(c => c.x));
+    const maxX = Math.max(...rotatedCorners.map(c => c.x));
+    const minY = Math.min(...rotatedCorners.map(c => c.y)); // Visual top (lowest Y = highest on screen)
+
+    // Center X of the rotated shape
+    const centerX = (minX + maxX) / 2;
 
     // Get canvas scaling for display
     const canvasRect = elements.radarCanvas.getBoundingClientRect();
     const scaleX = elements.radarCanvas.width / canvasRect.width;
     const scaleY = elements.radarCanvas.height / canvasRect.height;
 
-    // Get the shape actions bar height (approximately 36px)
+    // Position bar above the visual top of the object
     const barHeight = 40;
-    const displayX = rotatedCenterX / scaleX;
-    const displayY = (rotatedTopY / scaleY) - barHeight - 10; // Position bar above object with 10px gap
+    const gap = 15;
+    const displayX = centerX / scaleX;
+    const displayY = (minY / scaleY) - barHeight - gap;
 
     // Show/hide resize buttons based on item type (zones don't support resize)
     const showResizeButtons = selectedItemType !== 'zone';
