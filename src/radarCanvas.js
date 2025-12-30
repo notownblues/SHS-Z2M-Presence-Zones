@@ -1156,7 +1156,9 @@ export class RadarCanvas {
     drawEntrance(entrance, isSelected = false) {
         const x = this.toCanvasX(entrance.x);
         const y = this.toCanvasY(entrance.y);
-        const doorLength = 35; // Length of the door
+        // Convert entrance width from mm to canvas pixels (default 800mm)
+        const entranceWidth = entrance.width || 800;
+        const doorLength = entranceWidth * this.scaleX; // Convert mm to pixels
         const direction = (entrance.direction || 0) * Math.PI / 180;
 
         this.ctx.save();

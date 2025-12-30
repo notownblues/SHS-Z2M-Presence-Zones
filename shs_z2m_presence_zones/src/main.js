@@ -985,8 +985,18 @@ function handleMQTTMessage(topic, data) {
 function updateTargetsFromPositions() {
     state.sensor.targets = [];
 
-    // Add target 1 if active (non-zero position)
-    if (state.sensor.positions.t1.x !== 0 || state.sensor.positions.t1.y !== 0) {
+    // Minimum distance from sensor origin to display target (mm)
+    const MIN_DISTANCE = 200;
+
+    // Helper to check if target is valid (non-zero and far enough from sensor)
+    const isValidTarget = (x, y) => {
+        if (x === 0 && y === 0) return false;
+        const distance = Math.sqrt(x * x + y * y);
+        return distance >= MIN_DISTANCE;
+    };
+
+    // Add target 1 if active and far enough from sensor
+    if (isValidTarget(state.sensor.positions.t1.x, state.sensor.positions.t1.y)) {
         state.sensor.targets.push({
             x: state.sensor.positions.t1.x,
             y: state.sensor.positions.t1.y,
@@ -996,7 +1006,7 @@ function updateTargetsFromPositions() {
     }
 
     // Add target 2 if active
-    if (state.sensor.positions.t2.x !== 0 || state.sensor.positions.t2.y !== 0) {
+    if (isValidTarget(state.sensor.positions.t2.x, state.sensor.positions.t2.y)) {
         state.sensor.targets.push({
             x: state.sensor.positions.t2.x,
             y: state.sensor.positions.t2.y,
@@ -1006,7 +1016,7 @@ function updateTargetsFromPositions() {
     }
 
     // Add target 3 if active
-    if (state.sensor.positions.t3.x !== 0 || state.sensor.positions.t3.y !== 0) {
+    if (isValidTarget(state.sensor.positions.t3.x, state.sensor.positions.t3.y)) {
         state.sensor.targets.push({
             x: state.sensor.positions.t3.x,
             y: state.sensor.positions.t3.y,
