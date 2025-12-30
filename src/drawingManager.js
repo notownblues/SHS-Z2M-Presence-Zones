@@ -217,7 +217,7 @@ export class DrawingManager {
      * Find next available zone slot (0-2)
      */
     getNextAvailableZoneSlot() {
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 5; i++) {
             if (!this.state.zones.zones[i].enabled) {
                 return i;
             }
@@ -780,7 +780,7 @@ export class DrawingManager {
         const slot = this.getNextAvailableZoneSlot();
         if (slot === -1) {
             if (this.callbacks.onError) {
-                this.callbacks.onError('Maximum 3 zones. Delete one to add another.');
+                this.callbacks.onError('Maximum 5 zones. Delete one to add another.');
             }
             return;
         }
@@ -1381,7 +1381,7 @@ export class DrawingManager {
         const slot = this.getNextAvailableZoneSlot();
         if (slot === -1) {
             if (this.callbacks.onError) {
-                this.callbacks.onError('Maximum 3 zones. Delete one to add another.');
+                this.callbacks.onError('Maximum 5 zones. Delete one to add another.');
             }
             return;
         }

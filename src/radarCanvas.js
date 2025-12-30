@@ -41,7 +41,7 @@ export class RadarCanvas {
     resize() {
         // Get canvas container size
         const container = this.canvas.parentElement;
-        const size = Math.min(container.clientWidth, container.clientHeight, 600);
+        const size = Math.min(container.clientWidth, container.clientHeight, 900);
 
         // Set canvas size
         this.canvas.width = size;
@@ -78,6 +78,10 @@ export class RadarCanvas {
                 zone2Border: '#9a6700',
                 zone3: 'rgba(207, 34, 46, 0.15)',
                 zone3Border: '#cf222e',
+                zone4: 'rgba(139, 92, 246, 0.15)',
+                zone4Border: '#8b5cf6',
+                zone5: 'rgba(6, 182, 212, 0.15)',
+                zone5Border: '#06b6d4',
                 preview: 'rgba(0, 0, 0, 0.2)',
                 previewBorder: '#1f2328',
                 selection: '#0969da',
@@ -103,6 +107,10 @@ export class RadarCanvas {
                 zone2Border: '#d29922',
                 zone3: 'rgba(248, 81, 73, 0.2)',
                 zone3Border: '#f85149',
+                zone4: 'rgba(139, 92, 246, 0.2)',
+                zone4Border: '#a78bfa',
+                zone5: 'rgba(6, 182, 212, 0.2)',
+                zone5Border: '#22d3ee',
                 preview: 'rgba(255, 255, 255, 0.3)',
                 previewBorder: '#ffffff',
                 selection: '#58a6ff',
@@ -1299,7 +1307,9 @@ export class RadarCanvas {
         const colors = [
             { fill: this.COLORS.zone1, border: this.COLORS.zone1Border },
             { fill: this.COLORS.zone2, border: this.COLORS.zone2Border },
-            { fill: this.COLORS.zone3, border: this.COLORS.zone3Border }
+            { fill: this.COLORS.zone3, border: this.COLORS.zone3Border },
+            { fill: this.COLORS.zone4, border: this.COLORS.zone4Border },
+            { fill: this.COLORS.zone5, border: this.COLORS.zone5Border }
         ];
         const color = colors[index] || colors[0];
 
@@ -1553,23 +1563,28 @@ export class RadarCanvas {
         const sensorY = this.toCanvasY(sensorTransformed.y);
 
 
-        // Target circle
-        this.ctx.fillStyle = this.COLORS.target;
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, 6, 0, Math.PI * 2);
-        this.ctx.fill();
+        // Apple Maps style target dot
+        const blueColor = '#4285F4';  // Google/Apple blue
 
-        // Target ring (pulsing effect)
-        this.ctx.strokeStyle = this.COLORS.target;
-        this.ctx.lineWidth = 2;
+        // Outer white ring with subtle shadow
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 10 + Math.sin(Date.now() / 200 + index) * 3, 0, Math.PI * 2);
+        this.ctx.arc(x, y, 12, 0, Math.PI * 2);
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fill();
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        this.ctx.lineWidth = 1;
         this.ctx.stroke();
 
-        // Distance line from sensor origin
-        this.ctx.strokeStyle = this.COLORS.target;
-        this.ctx.lineWidth = 1;
-        this.ctx.setLineDash([3, 3]);
+        // Inner blue circle
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 8, 0, Math.PI * 2);
+        this.ctx.fillStyle = blueColor;
+        this.ctx.fill();
+
+        // Distance line from sensor origin (blue dashed)
+        this.ctx.strokeStyle = blueColor;
+        this.ctx.lineWidth = 1.5;
+        this.ctx.setLineDash([4, 4]);
         this.ctx.beginPath();
         this.ctx.moveTo(sensorX, sensorY);
         this.ctx.lineTo(x, y);
@@ -1578,7 +1593,7 @@ export class RadarCanvas {
 
         // Label (simple text since we're outside the rotated context)
         this.ctx.font = 'bold 11px sans-serif';
-        this.ctx.fillStyle = this.COLORS.target;
+        this.ctx.fillStyle = blueColor;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(`T${index + 1}`, x, y - 15);

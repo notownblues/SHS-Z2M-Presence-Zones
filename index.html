@@ -362,52 +362,59 @@
 
             <!-- Right Panel: Controls -->
             <aside class="controls-panel">
-                <!-- Room & Sensor Settings -->
-                <section class="control-section">
-                    <h2>Room & Sensor</h2>
-                    <div class="form-group">
-                        <label for="mqttTopic">MQTT Topic</label>
-                        <input type="text" id="mqttTopic" placeholder="zigbee2mqtt/SHS01" value="">
-                        <small class="help-text">Zigbee2MQTT topic for your sensor (e.g., zigbee2mqtt/SHS01).</small>
+                <!-- Room & Sensor Settings (Collapsible) -->
+                <section class="control-section collapsible" id="roomSensorSection">
+                    <div class="section-header-collapsible" onclick="toggleSection('roomSensorSection')">
+                        <h2>Room & Sensor</h2>
+                        <svg class="collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
                     </div>
-                    <div class="form-group">
-                        <label for="roomName">Room Name</label>
-                        <input type="text" id="roomName" placeholder="Living Room" value="">
-                        <small class="help-text">Name for this room/sensor configuration.</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="sensorSelector">Saved Rooms</label>
-                        <select id="sensorSelector">
-                            <option value="">-- Select a saved room --</option>
-                        </select>
-                        <small class="help-text">Select a saved room to load its configuration.</small>
-                    </div>
-                    <div class="form-group button-row">
-                        <button id="saveRoomBtn" class="btn btn-success" title="Save room configuration">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-                                <polyline points="17 21 17 13 7 13 7 21"/>
-                                <polyline points="7 3 7 8 15 8"/>
-                            </svg>
-                            Save Configuration
-                        </button>
-                        <button id="deleteRoomBtn" class="btn btn-danger" title="Delete room configuration">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                                <line x1="10" y1="11" x2="10" y2="17"/>
-                                <line x1="14" y1="11" x2="14" y2="17"/>
-                            </svg>
-                            Delete
-                        </button>
-                    </div>
-                    <div class="form-group" style="margin-top: 10px;">
-                        <button id="positionReportingBtn" class="btn btn-secondary" disabled>
-                            Enable Position Reporting
-                        </button>
-                        <small style="color: #8b949e;">
-                            Toggle X/Y position updates via Zigbee. Enable when configuring zones, disable after.
-                        </small>
+                    <div class="section-content">
+                        <div class="form-group">
+                            <label for="mqttTopic">MQTT Topic</label>
+                            <input type="text" id="mqttTopic" placeholder="zigbee2mqtt/SHS01" value="">
+                            <small class="help-text">Zigbee2MQTT topic for your sensor (e.g., zigbee2mqtt/SHS01).</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="roomName">Room Name</label>
+                            <input type="text" id="roomName" placeholder="Living Room" value="">
+                            <small class="help-text">Name for this room/sensor configuration.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="sensorSelector">Saved Rooms</label>
+                            <select id="sensorSelector">
+                                <option value="">-- Select a saved room --</option>
+                            </select>
+                            <small class="help-text">Select a saved room to load its configuration.</small>
+                        </div>
+                        <div class="form-group button-row">
+                            <button id="saveRoomBtn" class="btn btn-success" title="Save room configuration">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                                    <polyline points="17 21 17 13 7 13 7 21"/>
+                                    <polyline points="7 3 7 8 15 8"/>
+                                </svg>
+                                Save Configuration
+                            </button>
+                            <button id="deleteRoomBtn" class="btn btn-danger" title="Delete room configuration">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                    <line x1="10" y1="11" x2="10" y2="17"/>
+                                    <line x1="14" y1="11" x2="14" y2="17"/>
+                                </svg>
+                                Delete
+                            </button>
+                        </div>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <button id="positionReportingBtn" class="btn btn-purple" disabled>
+                                Enable Position Reporting
+                            </button>
+                            <small style="color: #8b949e;">
+                                Toggle X/Y position updates via Zigbee. Enable when configuring zones, disable after.
+                            </small>
+                        </div>
                     </div>
                 </section>
 
@@ -507,6 +514,54 @@
                                 <span id="zone3Info" class="zone-info-text">Click to draw on map</span>
                             </div>
                         </div>
+
+                        <div class="zone-card" id="zone4Card" data-zone="4">
+                            <div class="zone-card-header">
+                                <div class="zone-card-left">
+                                    <div class="zone-card-color zone4"></div>
+                                    <div class="zone-card-title-group">
+                                        <span class="zone-card-title">Zone 4</span>
+                                        <select id="zone4Type" class="zone-type-select" title="Zone Type">
+                                            <option value="detection">Detection</option>
+                                            <option value="interference">Interference</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="zone-card-right">
+                                    <svg class="zone-occupancy-icon" id="zone4OccupancyIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Zone Occupancy">
+                                        <circle cx="12" cy="12" r="10"/>
+                                    </svg>
+                                    <button class="zone-clear-btn" id="zone4ClearBtn" title="Clear Zone">CLEAR</button>
+                                </div>
+                            </div>
+                            <div class="zone-card-info">
+                                <span id="zone4Info" class="zone-info-text">Click to draw on map</span>
+                            </div>
+                        </div>
+
+                        <div class="zone-card" id="zone5Card" data-zone="5">
+                            <div class="zone-card-header">
+                                <div class="zone-card-left">
+                                    <div class="zone-card-color zone5"></div>
+                                    <div class="zone-card-title-group">
+                                        <span class="zone-card-title">Zone 5</span>
+                                        <select id="zone5Type" class="zone-type-select" title="Zone Type">
+                                            <option value="detection">Detection</option>
+                                            <option value="interference">Interference</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="zone-card-right">
+                                    <svg class="zone-occupancy-icon" id="zone5OccupancyIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Zone Occupancy">
+                                        <circle cx="12" cy="12" r="10"/>
+                                    </svg>
+                                    <button class="zone-clear-btn" id="zone5ClearBtn" title="Clear Zone">CLEAR</button>
+                                </div>
+                            </div>
+                            <div class="zone-card-info">
+                                <span id="zone5Info" class="zone-info-text">Click to draw on map</span>
+                            </div>
+                        </div>
                     </div>
 
                     <p class="help-text" style="margin-bottom: var(--spacing-md);">
@@ -529,6 +584,16 @@
                     <input type="hidden" id="zone3Y1" value="0">
                     <input type="hidden" id="zone3X2" value="1500">
                     <input type="hidden" id="zone3Y2" value="3000">
+                    <input type="hidden" id="zone4Enable" value="false">
+                    <input type="hidden" id="zone4X1" value="-1500">
+                    <input type="hidden" id="zone4Y1" value="0">
+                    <input type="hidden" id="zone4X2" value="1500">
+                    <input type="hidden" id="zone4Y2" value="3000">
+                    <input type="hidden" id="zone5Enable" value="false">
+                    <input type="hidden" id="zone5X1" value="-1500">
+                    <input type="hidden" id="zone5Y1" value="0">
+                    <input type="hidden" id="zone5X2" value="1500">
+                    <input type="hidden" id="zone5Y2" value="3000">
 
                     <div class="button-group">
                         <button id="applyZonesBtn" class="btn btn-primary">
@@ -554,6 +619,14 @@
         </main>
     </div>
 
+    <script>
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.classList.toggle('collapsed');
+            }
+        }
+    </script>
     <script type="module" src="/src/main.js"></script>
 </body>
 </html>

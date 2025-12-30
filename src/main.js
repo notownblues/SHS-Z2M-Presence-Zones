@@ -30,6 +30,8 @@ const state = {
         zones: [
             { occupied: false },
             { occupied: false },
+            { occupied: false },
+            { occupied: false },
             { occupied: false }
         ],
         // Store raw position data from MQTT
@@ -42,6 +44,8 @@ const state = {
     zones: {
         type: 0, // 0=off, 1=include, 2=exclude
         zones: [
+            { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
+            { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
             { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
             { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
             { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' }
@@ -147,10 +151,30 @@ const elements = {
     zone3Info: document.getElementById('zone3Info'),
     zone3Card: document.getElementById('zone3Card'),
 
+    zone4Enable: document.getElementById('zone4Enable'),
+    zone4X1: document.getElementById('zone4X1'),
+    zone4Y1: document.getElementById('zone4Y1'),
+    zone4X2: document.getElementById('zone4X2'),
+    zone4Y2: document.getElementById('zone4Y2'),
+    zone4Status: document.getElementById('zone4Status'),
+    zone4Info: document.getElementById('zone4Info'),
+    zone4Card: document.getElementById('zone4Card'),
+
+    zone5Enable: document.getElementById('zone5Enable'),
+    zone5X1: document.getElementById('zone5X1'),
+    zone5Y1: document.getElementById('zone5Y1'),
+    zone5X2: document.getElementById('zone5X2'),
+    zone5Y2: document.getElementById('zone5Y2'),
+    zone5Status: document.getElementById('zone5Status'),
+    zone5Info: document.getElementById('zone5Info'),
+    zone5Card: document.getElementById('zone5Card'),
+
     // Zone Type Selectors
     zone1Type: document.getElementById('zone1Type'),
     zone2Type: document.getElementById('zone2Type'),
     zone3Type: document.getElementById('zone3Type'),
+    zone4Type: document.getElementById('zone4Type'),
+    zone5Type: document.getElementById('zone5Type'),
 
     // Buttons
     applyZonesBtn: document.getElementById('applyZonesBtn'),
@@ -863,6 +887,16 @@ function handleMQTTMessage(topic, data) {
             elements.zone3Status.textContent = data.zone3_occupied ? 'Occupied' : 'Clear';
             elements.zone3Status.classList.toggle('occupied', data.zone3_occupied);
         }
+        if (data.zone4_occupied !== undefined) {
+            state.sensor.zones[3].occupied = data.zone4_occupied;
+            elements.zone4Status.textContent = data.zone4_occupied ? 'Occupied' : 'Clear';
+            elements.zone4Status.classList.toggle('occupied', data.zone4_occupied);
+        }
+        if (data.zone5_occupied !== undefined) {
+            state.sensor.zones[4].occupied = data.zone5_occupied;
+            elements.zone5Status.textContent = data.zone5_occupied ? 'Occupied' : 'Clear';
+            elements.zone5Status.classList.toggle('occupied', data.zone5_occupied);
+        }
 
         // Update position data from EP8-16 (Target 1, 2, 3 X/Y/Distance)
         // Target 1: EP8=X, EP9=Y, EP10=Distance
@@ -984,25 +1018,40 @@ function publishZoneConfig() {
     }
 
     // Build zone configuration message wrapped in zone_config object
-    // Z2M converter expects { zone_config: { zone_type, zone1_enabled, ... } }
+    // Z2M converter expects { zone_config: { zone_type, zone1_enabled, zone1_type, ... } }
     const config = {
         zone_config: {
             zone_type: state.zones.type,
             zone1_enabled: state.zones.zones[0].enabled,
+            zone1_type: state.zones.zones[0].zoneType || 'detection',
             zone1_x1: state.zones.zones[0].x1,
             zone1_y1: state.zones.zones[0].y1,
             zone1_x2: state.zones.zones[0].x2,
             zone1_y2: state.zones.zones[0].y2,
             zone2_enabled: state.zones.zones[1].enabled,
+            zone2_type: state.zones.zones[1].zoneType || 'detection',
             zone2_x1: state.zones.zones[1].x1,
             zone2_y1: state.zones.zones[1].y1,
             zone2_x2: state.zones.zones[1].x2,
             zone2_y2: state.zones.zones[1].y2,
             zone3_enabled: state.zones.zones[2].enabled,
+            zone3_type: state.zones.zones[2].zoneType || 'detection',
             zone3_x1: state.zones.zones[2].x1,
             zone3_y1: state.zones.zones[2].y1,
             zone3_x2: state.zones.zones[2].x2,
-            zone3_y2: state.zones.zones[2].y2
+            zone3_y2: state.zones.zones[2].y2,
+            zone4_enabled: state.zones.zones[3].enabled,
+            zone4_type: state.zones.zones[3].zoneType || 'detection',
+            zone4_x1: state.zones.zones[3].x1,
+            zone4_y1: state.zones.zones[3].y1,
+            zone4_x2: state.zones.zones[3].x2,
+            zone4_y2: state.zones.zones[3].y2,
+            zone5_enabled: state.zones.zones[4].enabled,
+            zone5_type: state.zones.zones[4].zoneType || 'detection',
+            zone5_x1: state.zones.zones[4].x1,
+            zone5_y1: state.zones.zones[4].y1,
+            zone5_x2: state.zones.zones[4].x2,
+            zone5_y2: state.zones.zones[4].y2
         }
     };
 
@@ -1075,6 +1124,20 @@ function populateSensorSelector() {
 
     // Clear existing options except the placeholder
     elements.sensorSelector.innerHTML = '<option value="">-- Select a saved room --</option>';
+
+    // Add "Create new room" option
+    const createOption = document.createElement('option');
+    createOption.value = '__create_new__';
+    createOption.textContent = '+ Create new room';
+    elements.sensorSelector.appendChild(createOption);
+
+    // Add separator if there are saved rooms
+    if (savedRooms.length > 0) {
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '───────────────';
+        elements.sensorSelector.appendChild(separator);
+    }
 
     // Add saved rooms
     savedRooms.forEach(roomName => {
@@ -1235,6 +1298,27 @@ function handleSensorSelection(event) {
 
     if (!selectedRoom) return;
 
+    // Handle "Create new room" option
+    if (selectedRoom === '__create_new__') {
+        // Clear the form for new room
+        elements.roomName.value = '';
+        elements.roomName.focus();
+
+        // Reset to default zone config
+        state.zones = storageManager.getDefaultZoneConfig();
+        state.annotations = storageManager.getDefaultAnnotations();
+        state.ui.mapRotation = 0;
+        radarCanvas.setMapRotation(0);
+
+        // Update UI
+        loadZoneFormValues();
+        radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+
+        // Reset selector to placeholder
+        elements.sensorSelector.value = '';
+        return;
+    }
+
     // Update the room name input
     elements.roomName.value = selectedRoom;
 
@@ -1336,6 +1420,26 @@ function loadZoneFormValues() {
         elements.zone3Type.value = state.zones.zones[2].zoneType || 'detection';
     }
 
+    // Zone 4 (hidden inputs use .value)
+    elements.zone4Enable.value = state.zones.zones[3].enabled;
+    elements.zone4X1.value = state.zones.zones[3].x1;
+    elements.zone4Y1.value = state.zones.zones[3].y1;
+    elements.zone4X2.value = state.zones.zones[3].x2;
+    elements.zone4Y2.value = state.zones.zones[3].y2;
+    if (elements.zone4Type) {
+        elements.zone4Type.value = state.zones.zones[3].zoneType || 'detection';
+    }
+
+    // Zone 5 (hidden inputs use .value)
+    elements.zone5Enable.value = state.zones.zones[4].enabled;
+    elements.zone5X1.value = state.zones.zones[4].x1;
+    elements.zone5Y1.value = state.zones.zones[4].y1;
+    elements.zone5X2.value = state.zones.zones[4].x2;
+    elements.zone5Y2.value = state.zones.zones[4].y2;
+    if (elements.zone5Type) {
+        elements.zone5Type.value = state.zones.zones[4].zoneType || 'detection';
+    }
+
     // Update zone cards UI
     updateZoneCards();
 }
@@ -1370,6 +1474,22 @@ function saveZoneFormValues() {
     state.zones.zones[2].y2 = parseInt(elements.zone3Y2.value) || 0;
     if (!state.zones.zones[2].shapeType) state.zones.zones[2].shapeType = 'rectangle';
     if (state.zones.zones[2].vertices === undefined) state.zones.zones[2].vertices = null;
+
+    // Zone 4 - preserve shapeType and vertices
+    state.zones.zones[3].x1 = parseInt(elements.zone4X1.value) || 0;
+    state.zones.zones[3].y1 = parseInt(elements.zone4Y1.value) || 0;
+    state.zones.zones[3].x2 = parseInt(elements.zone4X2.value) || 0;
+    state.zones.zones[3].y2 = parseInt(elements.zone4Y2.value) || 0;
+    if (!state.zones.zones[3].shapeType) state.zones.zones[3].shapeType = 'rectangle';
+    if (state.zones.zones[3].vertices === undefined) state.zones.zones[3].vertices = null;
+
+    // Zone 5 - preserve shapeType and vertices
+    state.zones.zones[4].x1 = parseInt(elements.zone5X1.value) || 0;
+    state.zones.zones[4].y1 = parseInt(elements.zone5Y1.value) || 0;
+    state.zones.zones[4].x2 = parseInt(elements.zone5X2.value) || 0;
+    state.zones.zones[4].y2 = parseInt(elements.zone5Y2.value) || 0;
+    if (!state.zones.zones[4].shapeType) state.zones.zones[4].shapeType = 'rectangle';
+    if (state.zones.zones[4].vertices === undefined) state.zones.zones[4].vertices = null;
 
     // Redraw canvas with updated zones
     radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
@@ -1406,7 +1526,9 @@ elements.zoneType.addEventListener('change', () => {
 const zoneInputs = [
     elements.zone1Enable, elements.zone1X1, elements.zone1Y1, elements.zone1X2, elements.zone1Y2,
     elements.zone2Enable, elements.zone2X1, elements.zone2Y1, elements.zone2X2, elements.zone2Y2,
-    elements.zone3Enable, elements.zone3X1, elements.zone3Y1, elements.zone3X2, elements.zone3Y2
+    elements.zone3Enable, elements.zone3X1, elements.zone3Y1, elements.zone3X2, elements.zone3Y2,
+    elements.zone4Enable, elements.zone4X1, elements.zone4Y1, elements.zone4X2, elements.zone4Y2,
+    elements.zone5Enable, elements.zone5X1, elements.zone5Y1, elements.zone5X2, elements.zone5Y2
 ];
 
 zoneInputs.forEach(input => {
@@ -1416,7 +1538,7 @@ zoneInputs.forEach(input => {
 });
 
 // Zone Type Selectors - update zone type and redraw
-[elements.zone1Type, elements.zone2Type, elements.zone3Type].forEach((select, index) => {
+[elements.zone1Type, elements.zone2Type, elements.zone3Type, elements.zone4Type, elements.zone5Type].forEach((select, index) => {
     if (select) {
         select.addEventListener('change', (e) => {
             state.zones.zones[index].zoneType = e.target.value;

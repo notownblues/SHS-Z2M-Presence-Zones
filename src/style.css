@@ -534,7 +534,7 @@ body {
 
 .canvas-container {
     position: relative;
-    max-width: 600px;
+    max-width: 900px;
     width: 100%;
     aspect-ratio: 1;
     background-color: var(--bg-tertiary);
@@ -639,6 +639,48 @@ body {
     font-size: 1.125rem;
     font-weight: 600;
     margin-bottom: var(--spacing-md);
+}
+
+/* Collapsible sections */
+.section-header-collapsible {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    margin: calc(var(--spacing-lg) * -1);
+    margin-bottom: 0;
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transition: background-color 0.15s ease;
+}
+
+.section-header-collapsible:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.section-header-collapsible h2 {
+    margin-bottom: 0;
+}
+
+.collapse-icon {
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.collapsible.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.collapsible .section-content {
+    margin-top: var(--spacing-md);
+}
+
+.collapsible.collapsed .section-content {
+    display: none;
+}
+
+.collapsible.collapsed .section-header-collapsible {
+    border-radius: var(--radius-lg);
     color: var(--text-primary);
 }
 
@@ -755,6 +797,17 @@ body {
 .btn-danger:hover {
     background-color: #da3633;
     border-color: #da3633;
+}
+
+.btn-purple {
+    background-color: #8b5cf6;
+    color: #ffffff;
+    border-color: #8b5cf6;
+}
+
+.btn-purple:hover {
+    background-color: #7c3aed;
+    border-color: #7c3aed;
 }
 
 .button-group {
@@ -910,6 +963,8 @@ body {
 .zone-card-color.zone1 { background-color: var(--color-primary); }
 .zone-card-color.zone2 { background-color: var(--color-warning); }
 .zone-card-color.zone3 { background-color: var(--color-danger); }
+.zone-card-color.zone4 { background-color: #8b5cf6; }
+.zone-card-color.zone5 { background-color: #06b6d4; }
 
 .zone-card-title {
     font-weight: 500;

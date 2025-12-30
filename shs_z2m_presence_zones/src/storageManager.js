@@ -111,6 +111,8 @@ export class StorageManager {
             zones: [
                 { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
                 { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
+                { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
+                { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
                 { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' }
             ]
         };
@@ -138,18 +140,28 @@ export class StorageManager {
             return this.getDefaultZoneConfig();
         }
 
+        const defaultZone = { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' };
+
+        // Migrate existing zones
+        const migratedZones = zones.zones.map(zone => ({
+            enabled: zone.enabled || false,
+            shapeType: zone.shapeType || 'rectangle',
+            x1: zone.x1 !== undefined ? zone.x1 : -1500,
+            y1: zone.y1 !== undefined ? zone.y1 : 0,
+            x2: zone.x2 !== undefined ? zone.x2 : 1500,
+            y2: zone.y2 !== undefined ? zone.y2 : 3000,
+            vertices: zone.vertices || null,
+            zoneType: zone.zoneType || 'detection'
+        }));
+
+        // Pad with default zones if fewer than 5 zones exist (for backwards compatibility)
+        while (migratedZones.length < 5) {
+            migratedZones.push({ ...defaultZone });
+        }
+
         return {
             type: zones.type || 0,
-            zones: zones.zones.map(zone => ({
-                enabled: zone.enabled || false,
-                shapeType: zone.shapeType || 'rectangle',
-                x1: zone.x1 !== undefined ? zone.x1 : -1500,
-                y1: zone.y1 !== undefined ? zone.y1 : 0,
-                x2: zone.x2 !== undefined ? zone.x2 : 1500,
-                y2: zone.y2 !== undefined ? zone.y2 : 3000,
-                vertices: zone.vertices || null,
-                zoneType: zone.zoneType || 'detection'
-            }))
+            zones: migratedZones
         };
     }
 
