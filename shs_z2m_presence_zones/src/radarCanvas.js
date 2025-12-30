@@ -1565,39 +1565,23 @@ export class RadarCanvas {
         const sensorX = this.toCanvasX(sensorTransformed.x);
         const sensorY = this.toCanvasY(sensorTransformed.y);
 
-        // Apple Maps style target dot
-        const blueColor = '#4285F4';
-
-        // Outer white ring with shadow
+        // Target circle
+        this.ctx.fillStyle = this.COLORS.target;
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 12, 0, Math.PI * 2);
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-        this.ctx.shadowBlur = 4;
-        this.ctx.shadowOffsetY = 1;
+        this.ctx.arc(x, y, 6, 0, Math.PI * 2);
         this.ctx.fill();
-        // Reset shadow
-        this.ctx.shadowColor = 'transparent';
-        this.ctx.shadowBlur = 0;
-        this.ctx.shadowOffsetY = 0;
 
-        // Border for outer ring
+        // Target ring (pulsing effect)
+        this.ctx.strokeStyle = this.COLORS.target;
+        this.ctx.lineWidth = 2;
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 12, 0, Math.PI * 2);
-        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-        this.ctx.lineWidth = 1;
+        this.ctx.arc(x, y, 10 + Math.sin(Date.now() / 200 + index) * 3, 0, Math.PI * 2);
         this.ctx.stroke();
 
-        // Inner blue circle
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, 8, 0, Math.PI * 2);
-        this.ctx.fillStyle = blueColor;
-        this.ctx.fill();
-
-        // Distance line from sensor origin (blue dashed)
-        this.ctx.strokeStyle = blueColor;
-        this.ctx.lineWidth = 1.5;
-        this.ctx.setLineDash([4, 4]);
+        // Distance line from sensor origin
+        this.ctx.strokeStyle = this.COLORS.target;
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([3, 3]);
         this.ctx.beginPath();
         this.ctx.moveTo(sensorX, sensorY);
         this.ctx.lineTo(x, y);
@@ -1606,14 +1590,14 @@ export class RadarCanvas {
 
         // Label
         this.ctx.font = 'bold 11px sans-serif';
-        this.ctx.fillStyle = blueColor;
+        this.ctx.fillStyle = this.COLORS.target;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`T${index + 1}`, x, y - 18);
+        this.ctx.fillText(`T${index + 1}`, x, y - 15);
 
         // Distance label
         this.ctx.font = '10px monospace';
-        this.ctx.fillText(`${Math.round(target.distance / 10) / 100}m`, x, y + 22);
+        this.ctx.fillText(`${Math.round(target.distance / 10) / 100}m`, x, y + 20);
     }
 
     /**
