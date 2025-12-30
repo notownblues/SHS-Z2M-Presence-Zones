@@ -1,0 +1,6 @@
+build_from:
+  aarch64: alpine:3.19
+  amd64: alpine:3.19
+  armhf: alpine:3.19
+  armv7: alpine:3.19
+  i386: alpine:3.19

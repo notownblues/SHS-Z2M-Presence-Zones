@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHS Z2M Presence Zone Configurator</title>
+    <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>SHS Z2M Presence Zone Configurator</h1>
+            <div class="connection-status">
+                <span class="status-indicator" id="mqttStatus"></span>
+                <span id="mqttStatusText">Disconnected</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel: Visualization -->
+            <section class="visualization-panel">
+                <div class="canvas-container">
+                    <canvas id="radarCanvas" width="600" height="600"></canvas>
+                    <div class="canvas-overlay">
+                        <div class="target-info" id="targetInfo">
+                            <div class="info-row">
+                                <span>Target Count:</span>
+                                <span id="targetCount">0</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Occupancy:</span>
+                                <span id="occupancy">Clear</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coordinates Display -->
+                <div class="coordinates-display">
+                    <div class="coord-group">
+                        <span class="coord-label">Sensor Origin</span>
+                        <span class="coord-value">0, 0</span>
+                    </div>
+                    <div class="coord-group">
+                        <span class="coord-label">Detection Range</span>
+                        <span class="coord-value">±3000mm × 6000mm</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Controls -->
+            <aside class="controls-panel">
+                <!-- Position Reporting -->
+                <section class="control-section">
+                    <h2>Sensor Control</h2>
+                    <div class="form-group">
+                        <button id="positionReportingBtn" class="btn btn-secondary" disabled>
+                            Enable Position Reporting
+                        </button>
+                        <small style="color: #8b949e;">
+                            Toggle X/Y position updates via Zigbee. Enable when configuring zones, disable after.
+                        </small>
+                    </div>
+                </section>
+
+                <!-- Zone Configuration -->
+                <section class="control-section">
+                    <h2>Zone Configuration</h2>
+
+                    <!-- Zone Type Selection -->
+                    <div class="form-group">
+                        <label for="zoneType">Zone Mode</label>
+                        <select id="zoneType">
+                            <option value="0">Disabled (All targets)</option>
+                            <option value="1">Detection (Include zones only)</option>
+                            <option value="2">Filter (Exclude zones)</option>
+                        </select>
+                        <small class="help-text">Detection: Only targets inside zones are detected. Filter: Targets inside zones are ignored.</small>
+                    </div>
+
+                    <!-- Zone Tabs -->
+                    <div class="zone-tabs">
+                        <button class="zone-tab active" data-zone="1">Zone 1</button>
+                        <button class="zone-tab" data-zone="2">Zone 2</button>
+                        <button class="zone-tab" data-zone="3">Zone 3</button>
+                    </div>
+
+                    <!-- Zone Editor (for Zone 1, similar for others) -->
+                    <div class="zone-editor" id="zone1Editor">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="zone1Enable">
+                                Enable Zone 1
+                            </label>
+                        </div>
+                        <div class="coordinate-inputs">
+                            <div class="form-group">
+                                <label>X1 (mm)</label>
+                                <input type="number" id="zone1X1" value="-1500" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Y1 (mm)</label>
+                                <input type="number" id="zone1Y1" value="0" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>X2 (mm)</label>
+                                <input type="number" id="zone1X2" value="1500" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Y2 (mm)</label>
+                                <input type="number" id="zone1Y2" value="3000" step="100">
+                            </div>
+                        </div>
+                        <div class="zone-status">
+                            <span>Status:</span>
+                            <span id="zone1Status" class="status-badge">Clear</span>
+                        </div>
+                    </div>
+
+                    <div class="zone-editor" id="zone2Editor" style="display: none;">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="zone2Enable">
+                                Enable Zone 2
+                            </label>
+                        </div>
+                        <div class="coordinate-inputs">
+                            <div class="form-group">
+                                <label>X1 (mm)</label>
+                                <input type="number" id="zone2X1" value="-1500" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Y1 (mm)</label>
+                                <input type="number" id="zone2Y1" value="0" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>X2 (mm)</label>
+                                <input type="number" id="zone2X2" value="1500" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Y2 (mm)</label>
+                                <input type="number" id="zone2Y2" value="3000" step="100">
+                            </div>
+                        </div>
+                        <div class="zone-status">
+                            <span>Status:</span>
+                            <span id="zone2Status" class="status-badge">Clear</span>
+                        </div>
+                    </div>
+
+                    <div class="zone-editor" id="zone3Editor" style="display: none;">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="zone3Enable">
+                                Enable Zone 3
+                            </label>
+                        </div>
+                        <div class="coordinate-inputs">
+                            <div class="form-group">
+                                <label>X1 (mm)</label>
+                                <input type="number" id="zone3X1" value="-1500" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Y1 (mm)</label>
+                                <input type="number" id="zone3Y1" value="0" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>X2 (mm)</label>
+                                <input type="number" id="zone3X2" value="1500" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Y2 (mm)</label>
+                                <input type="number" id="zone3Y2" value="3000" step="100">
+                            </div>
+                        </div>
+                        <div class="zone-status">
+                            <span>Status:</span>
+                            <span id="zone3Status" class="status-badge">Clear</span>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="applyZonesBtn" class="btn btn-success">Apply Zones</button>
+                        <button id="resetZonesBtn" class="btn btn-secondary">Reset</button>
+                    </div>
+                </section>
+
+                <!-- Live Target Data -->
+                <section class="control-section">
+                    <h2>Live Target Data</h2>
+                    <div id="targetList" class="target-list">
+                        <p class="text-muted">No targets detected</p>
+                    </div>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html>
