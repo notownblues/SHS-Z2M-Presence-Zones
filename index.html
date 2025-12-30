@@ -295,11 +295,19 @@
                 <!-- Sensor Status Bar -->
                 <div class="sensor-status-bar" id="sensorStatusBar">
                     <div class="status-item">
+                        <svg class="status-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="8" r="4"/>
+                            <path d="M5 20v-2a7 7 0 0 1 14 0v2"/>
+                        </svg>
                         <span class="status-label">Targets:</span>
                         <span class="status-value" id="targetCount">0</span>
                     </div>
                     <div class="status-divider"></div>
                     <div class="status-item">
+                        <svg class="status-icon occupancy-icon" id="occupancyIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path class="check-mark" d="M8 12l3 3 5-6" style="display: none;"/>
+                        </svg>
                         <span class="status-label">Status:</span>
                         <span class="status-value" id="occupancy">Clear</span>
                     </div>
@@ -440,7 +448,12 @@
                                         </select>
                                     </div>
                                 </div>
-                                <span id="zone1Status" class="status-badge">Clear</span>
+                                <div class="zone-card-right">
+                                    <svg class="zone-occupancy-icon" id="zone1OccupancyIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Zone Occupancy">
+                                        <circle cx="12" cy="12" r="10"/>
+                                    </svg>
+                                    <button class="zone-clear-btn" id="zone1ClearBtn" title="Clear Zone">CLEAR</button>
+                                </div>
                             </div>
                             <div class="zone-card-info">
                                 <span id="zone1Info" class="zone-info-text">Click to draw on map</span>
@@ -459,7 +472,12 @@
                                         </select>
                                     </div>
                                 </div>
-                                <span id="zone2Status" class="status-badge">Clear</span>
+                                <div class="zone-card-right">
+                                    <svg class="zone-occupancy-icon" id="zone2OccupancyIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Zone Occupancy">
+                                        <circle cx="12" cy="12" r="10"/>
+                                    </svg>
+                                    <button class="zone-clear-btn" id="zone2ClearBtn" title="Clear Zone">CLEAR</button>
+                                </div>
                             </div>
                             <div class="zone-card-info">
                                 <span id="zone2Info" class="zone-info-text">Click to draw on map</span>
@@ -478,7 +496,12 @@
                                         </select>
                                     </div>
                                 </div>
-                                <span id="zone3Status" class="status-badge">Clear</span>
+                                <div class="zone-card-right">
+                                    <svg class="zone-occupancy-icon" id="zone3OccupancyIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Zone Occupancy">
+                                        <circle cx="12" cy="12" r="10"/>
+                                    </svg>
+                                    <button class="zone-clear-btn" id="zone3ClearBtn" title="Clear Zone">CLEAR</button>
+                                </div>
                             </div>
                             <div class="zone-card-info">
                                 <span id="zone3Info" class="zone-info-text">Click to draw on map</span>

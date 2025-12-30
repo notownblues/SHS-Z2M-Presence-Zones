@@ -502,7 +502,17 @@ body {
 .status-item {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
+}
+
+.status-icon {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.status-icon.occupancy-icon.occupied {
+    color: var(--color-success);
+    fill: var(--color-success);
 }
 
 .status-label {
@@ -848,6 +858,40 @@ body {
     display: flex;
     align-items: flex-start;
     gap: var(--spacing-sm);
+}
+
+.zone-card-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.zone-occupancy-icon {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.zone-occupancy-icon.occupied {
+    color: var(--color-success);
+    fill: var(--color-success);
+}
+
+.zone-clear-btn {
+    padding: 2px var(--spacing-sm);
+    font-size: 0.65rem;
+    font-weight: 600;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.zone-clear-btn:hover {
+    background-color: var(--bg-tertiary);
+    border-color: var(--text-muted);
+    color: var(--text-primary);
 }
 
 .zone-card-title-group {
