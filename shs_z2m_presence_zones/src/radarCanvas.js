@@ -290,11 +290,6 @@ export class RadarCanvas {
             this.ctx.translate(-this.width / 2, -this.height / 2);
         }
 
-        // Draw edges first (grey-out areas behind everything)
-        if (annotations && annotations.edges) {
-            this.drawEdges(annotations.edges);
-        }
-
         // Draw grid
         this.drawGrid();
 
@@ -308,6 +303,11 @@ export class RadarCanvas {
 
         // Restore context after rotation
         this.ctx.restore();
+
+        // Draw edges OUTSIDE the rotated context (like zones) for consistent coordinate handling
+        if (annotations && annotations.edges) {
+            this.drawEdges(annotations.edges);
+        }
 
         // Draw zones OUTSIDE the rotated context using explicit transformation (like targets)
         zones.forEach((zone, index) => {
@@ -1619,12 +1619,16 @@ export class RadarCanvas {
 
     /**
      * Draw a single edge rectangle
+     * Uses transformSensorToRoom for consistent coordinate handling with zones
      */
     drawEdge(edge, isSelected = false) {
-        const x1 = this.toCanvasX(edge.x1);
-        const y1 = this.toCanvasY(edge.y1);
-        const x2 = this.toCanvasX(edge.x2);
-        const y2 = this.toCanvasY(edge.y2);
+        // Transform edge coordinates the same way as zones
+        const corner1 = this.transformSensorToRoom(edge.x1, edge.y1);
+        const corner2 = this.transformSensorToRoom(edge.x2, edge.y2);
+        const x1 = this.toCanvasX(corner1.x);
+        const y1 = this.toCanvasY(corner1.y);
+        const x2 = this.toCanvasX(corner2.x);
+        const y2 = this.toCanvasY(corner2.y);
 
         const minX = Math.min(x1, x2);
         const maxX = Math.max(x1, x2);
@@ -1650,12 +1654,16 @@ export class RadarCanvas {
 
     /**
      * Draw resize handles for selected edge
+     * Uses transformSensorToRoom for consistent coordinate handling with zones
      */
     drawEdgeHandles(edge) {
-        const x1 = this.toCanvasX(edge.x1);
-        const y1 = this.toCanvasY(edge.y1);
-        const x2 = this.toCanvasX(edge.x2);
-        const y2 = this.toCanvasY(edge.y2);
+        // Transform edge coordinates the same way as zones
+        const corner1 = this.transformSensorToRoom(edge.x1, edge.y1);
+        const corner2 = this.transformSensorToRoom(edge.x2, edge.y2);
+        const x1 = this.toCanvasX(corner1.x);
+        const y1 = this.toCanvasY(corner1.y);
+        const x2 = this.toCanvasX(corner2.x);
+        const y2 = this.toCanvasY(corner2.y);
 
         const minX = Math.min(x1, x2);
         const maxX = Math.max(x1, x2);

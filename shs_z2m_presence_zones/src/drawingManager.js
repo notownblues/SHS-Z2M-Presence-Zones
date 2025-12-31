@@ -483,6 +483,44 @@ export class DrawingManager {
     }
 
     /**
+     * Get edge handle at point using zone-specific coordinates
+     * Edges are now drawn using transformSensorToRoom like zones
+     */
+    getEdgeHandleAtPointForZone(canvasX, canvasY, edge) {
+        if (!edge) return null;
+
+        const corners = {
+            x1: Math.min(edge.x1, edge.x2),
+            y1: Math.min(edge.y1, edge.y2),
+            x2: Math.max(edge.x1, edge.x2),
+            y2: Math.max(edge.y1, edge.y2)
+        };
+
+        const handles = [
+            { type: 'nw', x: corners.x1, y: corners.y2, updateX: 'x1', updateY: 'y2' },
+            { type: 'ne', x: corners.x2, y: corners.y2, updateX: 'x2', updateY: 'y2' },
+            { type: 'sw', x: corners.x1, y: corners.y1, updateX: 'x1', updateY: 'y1' },
+            { type: 'se', x: corners.x2, y: corners.y1, updateX: 'x2', updateY: 'y1' },
+            { type: 'n', x: (corners.x1 + corners.x2) / 2, y: corners.y2, updateX: null, updateY: 'y2' },
+            { type: 's', x: (corners.x1 + corners.x2) / 2, y: corners.y1, updateX: null, updateY: 'y1' },
+            { type: 'w', x: corners.x1, y: (corners.y1 + corners.y2) / 2, updateX: 'x1', updateY: null },
+            { type: 'e', x: corners.x2, y: (corners.y1 + corners.y2) / 2, updateX: 'x2', updateY: null }
+        ];
+
+        for (const handle of handles) {
+            // Use zone-specific coordinate conversion
+            const canvasHandle = this.toCanvasCoordsForZone(handle.x, handle.y);
+            const dx = canvasX - canvasHandle.x;
+            const dy = canvasY - canvasHandle.y;
+            if (Math.sqrt(dx * dx + dy * dy) <= this.handleSize) {
+                return handle;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Handle mouse down event
      */
     handleMouseDown(event) {
@@ -522,7 +560,8 @@ export class DrawingManager {
                 this.handleEntrancePlacement(sensorCoords);
                 break;
             case 'draw-edge':
-                this.handleEdgeMouseDown(sensorCoords);
+                // Edge drawing uses zone-specific coordinates
+                this.handleEdgeMouseDown(zoneSensorCoords);
                 break;
         }
     }
@@ -580,15 +619,15 @@ export class DrawingManager {
             }
         }
 
-        // Check if we're clicking on the selected edge
+        // Check if we're clicking on the selected edge (use zone coords - edges use same transform)
         if (this.selectedEdgeIndex !== null) {
             const edge = this.state.annotations.edges[this.selectedEdgeIndex];
-            if (edge && this.isPointInEdge(sensorCoords.x, sensorCoords.y, edge)) {
+            if (edge && this.isPointInEdge(zoneSensorCoords.x, zoneSensorCoords.y, edge)) {
                 this.isRightClickDragging = true;
                 this.isDragging = true;
                 this.dragOffset = {
-                    x: sensorCoords.x - (edge.x1 + edge.x2) / 2,
-                    y: sensorCoords.y - (edge.y1 + edge.y2) / 2
+                    x: zoneSensorCoords.x - (edge.x1 + edge.x2) / 2,
+                    y: zoneSensorCoords.y - (edge.y1 + edge.y2) / 2
                 };
                 this.canvas.style.cursor = 'move';
                 return;
@@ -662,22 +701,22 @@ export class DrawingManager {
             }
         }
 
-        // Check for handle click (for selected edge - resizing)
+        // Check for handle click (for selected edge - resizing) - use zone coords
         if (this.selectedEdgeIndex !== null) {
             const edge = this.state.annotations.edges[this.selectedEdgeIndex];
-            const handle = this.getEdgeHandleAtPoint(canvasCoords.x, canvasCoords.y, edge);
+            const handle = this.getEdgeHandleAtPointForZone(canvasCoords.x, canvasCoords.y, edge);
             if (handle) {
                 this.selectedHandle = { ...handle, itemType: 'edge', index: this.selectedEdgeIndex };
                 this.isDragging = true;
-                this.startPoint = sensorCoords;
+                this.startPoint = zoneSensorCoords;
                 return;
             }
             // If clicking on already-selected edge (not handle), start dragging
-            if (edge && this.isPointInEdge(sensorCoords.x, sensorCoords.y, edge)) {
+            if (edge && this.isPointInEdge(zoneSensorCoords.x, zoneSensorCoords.y, edge)) {
                 this.isDragging = true;
                 this.dragOffset = {
-                    x: sensorCoords.x - (edge.x1 + edge.x2) / 2,
-                    y: sensorCoords.y - (edge.y1 + edge.y2) / 2
+                    x: zoneSensorCoords.x - (edge.x1 + edge.x2) / 2,
+                    y: zoneSensorCoords.y - (edge.y1 + edge.y2) / 2
                 };
                 this.canvas.style.cursor = 'move';
                 return;
@@ -723,11 +762,11 @@ export class DrawingManager {
             }
         }
 
-        // Check for edge click (edges are drawn behind zones, so check last)
+        // Check for edge click (use zone-specific coordinates)
         const edges = this.state.annotations.edges || [];
         for (let i = edges.length - 1; i >= 0; i--) {
             const edge = edges[i];
-            if (this.isPointInEdge(sensorCoords.x, sensorCoords.y, edge)) {
+            if (this.isPointInEdge(zoneSensorCoords.x, zoneSensorCoords.y, edge)) {
                 this.clearOtherSelections('edge');
                 this.selectedEdgeIndex = i;
                 if (this.callbacks.onEdgeSelect) {
@@ -964,7 +1003,8 @@ export class DrawingManager {
                 break;
             case 'draw-edge':
                 if (this.isDrawing) {
-                    this.updateEdgePreview(sensorCoords);
+                    // Edge preview uses zone-specific coordinates
+                    this.updateEdgePreview(zoneSensorCoords);
                 }
                 break;
         }
@@ -1033,14 +1073,14 @@ export class DrawingManager {
                 }
             }
 
-            // Update cursor for edge handles
+            // Update cursor for edge handles (use zone-specific coordinates)
             if (this.selectedEdgeIndex !== null) {
                 const edge = this.state.annotations.edges[this.selectedEdgeIndex];
-                const handle = this.getEdgeHandleAtPoint(canvasCoords.x, canvasCoords.y, edge);
+                const handle = this.getEdgeHandleAtPointForZone(canvasCoords.x, canvasCoords.y, edge);
                 if (handle) {
                     this.canvas.style.cursor = this.getHandleCursor(handle.type);
                     return;
-                } else if (this.isPointInEdge(sensorCoords.x, sensorCoords.y, edge)) {
+                } else if (this.isPointInEdge(zoneSensorCoords.x, zoneSensorCoords.y, edge)) {
                     this.canvas.style.cursor = 'move';
                     return;
                 }
@@ -1071,7 +1111,8 @@ export class DrawingManager {
             if (this.selectedHandle.itemType === 'furniture') {
                 this.resizeFurniture(sensorCoords);
             } else if (this.selectedHandle.itemType === 'edge') {
-                this.resizeEdge(sensorCoords);
+                // Edge resizing uses zone-specific coordinates
+                this.resizeEdge(zoneSensorCoords);
             } else {
                 // Zone resizing uses zone-specific coordinates
                 this.resizeZone(zoneSensorCoords);
@@ -1084,7 +1125,8 @@ export class DrawingManager {
             // Zone moving uses zone-specific coordinates
             this.moveZone(zoneSensorCoords);
         } else if (this.selectedEdgeIndex !== null) {
-            this.moveEdge(sensorCoords);
+            // Edge moving uses zone-specific coordinates
+            this.moveEdge(zoneSensorCoords);
         }
     }
 
