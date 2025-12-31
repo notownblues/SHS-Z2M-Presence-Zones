@@ -1212,7 +1212,7 @@ function populateSensorSelector() {
     if (savedRooms.length > 0) {
         const separator = document.createElement('option');
         separator.disabled = true;
-        separator.textContent = '───────────────';
+        separator.textContent = '— Saved Rooms —';
         elements.sensorSelector.appendChild(separator);
     }
 

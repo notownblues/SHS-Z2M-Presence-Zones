@@ -1295,7 +1295,7 @@ body {
         flex-direction: column;
         align-items: stretch;
         padding: var(--spacing-sm) var(--spacing-md);
-        gap: var(--spacing-xs);
+        gap: var(--spacing-sm);
     }
 
     .header-title {
@@ -1305,7 +1305,7 @@ body {
     .header-right {
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-xs);
+        gap: var(--spacing-sm);
         width: 100%;
     }
 
@@ -1318,8 +1318,18 @@ body {
     }
 
     .connection-status {
-        font-size: 0.8rem;
+        font-size: 0.9rem;
         flex: 1;
+    }
+
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+    }
+
+    .dark-mode-toggle {
+        width: 44px;
+        height: 44px;
     }
 
     #mqttStatusText {
@@ -1329,15 +1339,16 @@ body {
         white-space: normal;
     }
 
-    /* Show mobile position reporting button - full width on second row */
+    /* Show mobile position reporting button - auto width, centered */
     .btn-header-mobile {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: var(--spacing-sm);
-        padding: var(--spacing-sm) var(--spacing-md);
+        padding: var(--spacing-sm) var(--spacing-lg);
         font-size: 0.85rem;
-        width: 100%;
+        width: auto;
+        align-self: center;
         min-height: 44px;
     }
 
@@ -1356,24 +1367,41 @@ body {
     }
 
     .sidebar-title {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
+    }
+
+    /* Scroll arrows - larger */
+    .scroll-arrow {
+        width: 36px;
+        height: 36px;
+    }
+
+    .scroll-arrow svg {
+        width: 20px;
+        height: 20px;
     }
 
     .furniture-item {
-        width: 64px;
-        min-width: 64px;
+        width: 72px;
+        min-width: 72px;
         padding: var(--spacing-sm);
     }
 
     .furniture-item svg {
-        width: 32px;
-        height: 32px;
+        width: 36px;
+        height: 36px;
     }
 
     .furniture-item span {
         display: block;
-        font-size: 0.55rem;
-        margin-top: 2px;
+        font-size: 0.6rem;
+        margin-top: 4px;
+        white-space: normal;
+        word-wrap: break-word;
+        line-height: 1.2;
+        max-height: none;
+        overflow: visible;
+        text-overflow: unset;
     }
 
     /* Visualization panel adjustments */
@@ -1536,46 +1564,46 @@ body {
         padding: var(--spacing-xs) var(--spacing-sm);
     }
 
-    .header-title {
-        font-size: 0.8rem;
-    }
-
     .connection-status {
-        gap: var(--spacing-xs);
+        font-size: 0.85rem;
     }
 
     .status-indicator {
-        width: 8px;
-        height: 8px;
+        width: 10px;
+        height: 10px;
     }
 
     #mqttStatusText {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
     }
 
     .dark-mode-toggle {
-        width: 32px;
-        height: 32px;
+        width: 40px;
+        height: 40px;
     }
 
     .btn-header-mobile {
-        padding: var(--spacing-sm);
+        padding: var(--spacing-sm) var(--spacing-md);
         font-size: 0.8rem;
     }
 
     .furniture-item {
-        width: 48px;
-        min-width: 48px;
+        width: 64px;
+        min-width: 64px;
     }
 
     .furniture-item svg {
-        width: 24px;
-        height: 24px;
+        width: 32px;
+        height: 32px;
+    }
+
+    .furniture-item span {
+        font-size: 0.55rem;
     }
 
     .scroll-arrow {
-        width: 24px;
-        height: 24px;
+        width: 32px;
+        height: 32px;
     }
 
     .visualization-panel {
@@ -1583,13 +1611,13 @@ body {
     }
 
     .tool-btn {
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
     }
 
     .tool-btn svg {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
     }
 }
 
