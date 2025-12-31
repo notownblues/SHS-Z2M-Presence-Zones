@@ -11,7 +11,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import mqtt from 'mqtt';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -19,6 +19,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Room configurations storage path (persistent in /data/ for Home Assistant addons)
 const ROOM_CONFIGS_PATH = process.env.ROOM_CONFIGS_PATH || '/data/room_configs.json';
+const ROOM_CONFIGS_DIR = path.dirname(ROOM_CONFIGS_PATH);
+
+// Ensure the data directory exists
+function ensureDataDirectory() {
+    try {
+        if (!existsSync(ROOM_CONFIGS_DIR)) {
+            mkdirSync(ROOM_CONFIGS_DIR, { recursive: true });
+            console.log(`[STORAGE] Created data directory: ${ROOM_CONFIGS_DIR}`);
+        }
+    } catch (error) {
+        console.error(`[STORAGE] Error creating data directory:`, error.message);
+    }
+}
+
+// Create data directory on startup
+ensureDataDirectory();
 
 // Configuration
 const PORT = process.env.PORT || 8099;
@@ -77,11 +93,28 @@ function loadRoomConfigs() {
  */
 function saveRoomConfigs(configs) {
     try {
-        writeFileSync(ROOM_CONFIGS_PATH, JSON.stringify(configs, null, 2), 'utf8');
-        console.log(`[STORAGE] Saved ${Object.keys(configs).length} room configurations`);
+        // Ensure directory exists before writing
+        ensureDataDirectory();
+
+        const data = JSON.stringify(configs, null, 2);
+        writeFileSync(ROOM_CONFIGS_PATH, data, 'utf8');
+        console.log(`[STORAGE] Saved ${Object.keys(configs).length} room configurations to ${ROOM_CONFIGS_PATH}`);
+
+        // Verify the write was successful
+        if (existsSync(ROOM_CONFIGS_PATH)) {
+            const savedData = readFileSync(ROOM_CONFIGS_PATH, 'utf8');
+            if (savedData === data) {
+                console.log(`[STORAGE] Verified: Data written successfully`);
+                return true;
+            } else {
+                console.error(`[STORAGE] Warning: Written data doesn't match!`);
+            }
+        }
         return true;
     } catch (error) {
         console.error(`[STORAGE] Error saving room configs:`, error.message);
+        console.error(`[STORAGE] Path: ${ROOM_CONFIGS_PATH}`);
+        console.error(`[STORAGE] Stack:`, error.stack);
         return false;
     }
 }
@@ -405,7 +438,10 @@ wss.on('connection', (ws) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.6.3`);
+    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.6.4`);
     console.log(`[SERVER] Listening on port ${PORT}`);
     console.log(`[SERVER] MQTT broker: ws://${config.mqtt_host}:${config.mqtt_ws_port}`);
+    console.log(`[STORAGE] Room configs path: ${ROOM_CONFIGS_PATH}`);
+    console.log(`[STORAGE] Room configs exist: ${existsSync(ROOM_CONFIGS_PATH)}`);
+    console.log(`[STORAGE] Loaded rooms: ${Object.keys(roomConfigs).join(', ') || '(none)'}`);
 });
