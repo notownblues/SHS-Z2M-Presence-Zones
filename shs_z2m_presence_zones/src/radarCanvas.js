@@ -201,8 +201,8 @@ export class RadarCanvas {
                 return { x: sensorY - 3000, y: sensorX + 3000 };
             case 180:
                 // Sensor on top looking down
-                // Negate X (left/right flip), invert Y
-                return { x: -sensorX, y: Y_MAX - sensorY };
+                // Keep X same, invert Y
+                return { x: sensorX, y: Y_MAX - sensorY };
             case 270:
                 // Sensor on right looking left
                 // sensor LEFT (X-) = visual BOTTOM, sensor RIGHT (X+) = visual TOP
@@ -228,8 +228,8 @@ export class RadarCanvas {
                 // So: sensorX = roomY - 3000, sensorY = roomX + 3000
                 return { x: roomY - 3000, y: roomX + 3000 };
             case 180:
-                // Inverse of 180° transform (negate X back)
-                return { x: -roomX, y: Y_MAX - roomY };
+                // Inverse of 180° transform
+                return { x: roomX, y: Y_MAX - roomY };
             case 270:
                 // Inverse of 270° transform: x = 3000 - sensorY, y = 3000 - sensorX
                 // So: sensorY = 3000 - roomX, sensorX = 3000 - roomY

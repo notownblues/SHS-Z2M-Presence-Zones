@@ -17,8 +17,13 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Room configurations storage path (persistent in /data/ for Home Assistant addons)
-const ROOM_CONFIGS_PATH = process.env.ROOM_CONFIGS_PATH || '/data/room_configs.json';
+// Room configurations storage path
+// Use /share/ for persistence across addon reinstalls (mapped via config.yaml)
+// Falls back to /data/ if /share/ is not available
+const SHARE_PATH = '/share/shs_z2m_presence_zones/room_configs.json';
+const DATA_PATH = '/data/room_configs.json';
+const ROOM_CONFIGS_PATH = process.env.ROOM_CONFIGS_PATH ||
+    (existsSync('/share') ? SHARE_PATH : DATA_PATH);
 const ROOM_CONFIGS_DIR = path.dirname(ROOM_CONFIGS_PATH);
 
 // Ensure the data directory exists
@@ -35,6 +40,24 @@ function ensureDataDirectory() {
 
 // Create data directory on startup
 ensureDataDirectory();
+
+// Migrate data from /data/ to /share/ if needed
+function migrateDataToShare() {
+    // Only migrate if we're using /share/ and old data exists in /data/
+    if (ROOM_CONFIGS_PATH === SHARE_PATH && existsSync(DATA_PATH) && !existsSync(SHARE_PATH)) {
+        try {
+            console.log(`[STORAGE] Migrating data from ${DATA_PATH} to ${SHARE_PATH}`);
+            const oldData = readFileSync(DATA_PATH, 'utf8');
+            ensureDataDirectory();
+            writeFileSync(SHARE_PATH, oldData, 'utf8');
+            console.log(`[STORAGE] Migration successful!`);
+        } catch (error) {
+            console.error(`[STORAGE] Migration failed:`, error.message);
+        }
+    }
+}
+
+migrateDataToShare();
 
 // Configuration
 const PORT = process.env.PORT || 8099;
@@ -438,7 +461,7 @@ wss.on('connection', (ws) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.6.4`);
+    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.6.5`);
     console.log(`[SERVER] Listening on port ${PORT}`);
     console.log(`[SERVER] MQTT broker: ws://${config.mqtt_host}:${config.mqtt_ws_port}`);
     console.log(`[STORAGE] Room configs path: ${ROOM_CONFIGS_PATH}`);
