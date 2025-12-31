@@ -1,5 +1,5 @@
 name: SHS Z2M Presence Zone Configurator
-version: "2.6.6"
+version: "2.6.7"
 slug: shs_z2m_presence_zones
 description: Web-based zone configurator for SHS01 mmWave presence sensor via Zigbee2MQTT
 url: https://github.com/notownblues/SHS-Z2M-Presence-Zones
@@ -19,8 +19,8 @@ panel_title: Zone Configurator
 # Map /share for persistent storage that survives addon reinstalls
 map:
   - share:rw
-# Include addon data in Home Assistant backups
-backup: full
+# Include addon data in Home Assistant backups (hot = don't stop addon during backup)
+backup: hot
 options:
   mqtt_host: homeassistant.local
   mqtt_ws_port: 1884
