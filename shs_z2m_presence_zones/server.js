@@ -461,7 +461,7 @@ wss.on('connection', (ws) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.6.8`);
+    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.6.9`);
     console.log(`[SERVER] Listening on port ${PORT}`);
     console.log(`[SERVER] MQTT broker: ws://${config.mqtt_host}:${config.mqtt_ws_port}`);
     console.log(`[STORAGE] Room configs path: ${ROOM_CONFIGS_PATH}`);

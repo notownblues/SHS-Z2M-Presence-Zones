@@ -241,15 +241,16 @@ export class RadarCanvas {
 
     /**
      * Draw text that stays upright regardless of map rotation
+     * @param {boolean} options.skipRotation - If true, skip counter-rotation (for elements drawn outside ctx.rotate)
      */
     drawUprightText(text, x, y, options = {}) {
-        const { align = 'center', baseline = 'middle', font = '11px monospace', color = this.COLORS.gridLabel } = options;
+        const { align = 'center', baseline = 'middle', font = '11px monospace', color = this.COLORS.gridLabel, skipRotation = false } = options;
 
         this.ctx.save();
         this.ctx.translate(x, y);
 
-        // Counter-rotate to keep text upright
-        if (this.mapRotation !== 0) {
+        // Counter-rotate to keep text upright (only if inside rotated context)
+        if (this.mapRotation !== 0 && !skipRotation) {
             this.ctx.rotate(-this.mapRotation * Math.PI / 180);
         }
 
@@ -1349,7 +1350,7 @@ export class RadarCanvas {
         this.ctx.lineWidth = isSelected ? 3 : 2;
         this.ctx.strokeRect(x1, y1, width, height);
 
-        // Label (upright) - centered inside the zone
+        // Label - centered inside the zone (skipRotation since zones are outside ctx.rotate)
         const centerX = (x1 + x2) / 2;
         const centerY = (y1 + y2) / 2;
         const zoneType = zone.zoneType === 'interference' ? 'Interference' : 'Detection';
@@ -1357,13 +1358,15 @@ export class RadarCanvas {
         this.drawUprightText(`Zone ${index + 1}`, centerX, centerY + 8, {
             font: 'bold 12px sans-serif',
             color: color.border,
-            align: 'center'
+            align: 'center',
+            skipRotation: true
         });
         // Draw zone type below
         this.drawUprightText(`(${zoneType})`, centerX, centerY - 8, {
             font: '11px sans-serif',
             color: color.border,
-            align: 'center'
+            align: 'center',
+            skipRotation: true
         });
     }
 
@@ -1402,7 +1405,7 @@ export class RadarCanvas {
         this.ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
         this.ctx.setLineDash([]);
 
-        // Label (upright) - centered inside the zone
+        // Label - centered inside the zone (skipRotation since zones are outside ctx.rotate)
         const centerX = (x1 + x2) / 2;
         const centerY = (y1 + y2) / 2;
         const zoneType = zone.zoneType === 'interference' ? 'Interference' : 'Detection';
@@ -1410,20 +1413,23 @@ export class RadarCanvas {
         this.drawUprightText(`Zone ${index + 1}`, centerX, centerY + 8, {
             font: 'bold 12px sans-serif',
             color: color.border,
-            align: 'center'
+            align: 'center',
+            skipRotation: true
         });
         // Draw zone type below
         this.drawUprightText(`(${zoneType})`, centerX, centerY - 8, {
             font: '11px sans-serif',
             color: color.border,
-            align: 'center'
+            align: 'center',
+            skipRotation: true
         });
 
-        // Draw vertex points
+        // Draw vertex points (using transformed coordinates)
         this.ctx.fillStyle = color.border;
         vertices.forEach(v => {
+            const transformed = this.transformSensorToRoom(v.x, v.y);
             this.ctx.beginPath();
-            this.ctx.arc(this.toCanvasX(v.x), this.toCanvasY(v.y), 4, 0, Math.PI * 2);
+            this.ctx.arc(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y), 4, 0, Math.PI * 2);
             this.ctx.fill();
         });
     }

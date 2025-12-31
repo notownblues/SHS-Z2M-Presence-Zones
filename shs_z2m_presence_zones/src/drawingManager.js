@@ -237,55 +237,31 @@ export class DrawingManager {
 
     /**
      * Convert canvas coords to sensor coords.
-     * This accounts for map rotation by undoing the visual rotation
-     * before converting to sensor coordinates.
+     * Zones and targets are drawn using transformSensorToRoom(), so we need
+     * to apply the inverse transformation (transformRoomToSensor) here.
      * Used for both drawing zones and hit detection.
      */
     toSensorCoords(canvasX, canvasY) {
-        // Undo the visual rotation to get the unrotated canvas position
-        const cx = this.radarCanvas.width / 2;
-        const cy = this.radarCanvas.height / 2;
-        const rotation = this.radarCanvas.mapRotation || 0;
-        const angle = -rotation * Math.PI / 180; // Negative to inverse rotate
+        // First convert canvas pixels to room coordinates (mm)
+        const roomX = this.radarCanvas.toSensorX(canvasX);
+        const roomY = this.radarCanvas.toSensorY(canvasY);
 
-        const dx = canvasX - cx;
-        const dy = canvasY - cy;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const unrotatedX = cx + dx * cos - dy * sin;
-        const unrotatedY = cy + dx * sin + dy * cos;
-
-        // Convert to sensor coordinates
-        return {
-            x: this.radarCanvas.toSensorX(unrotatedX),
-            y: this.radarCanvas.toSensorY(unrotatedY)
-        };
+        // Then transform from room coordinates to sensor coordinates
+        return this.radarCanvas.transformRoomToSensor(roomX, roomY);
     }
 
     /**
      * Convert sensor coords to canvas coords for hit detection.
-     * Since zones are drawn in the rotated canvas context, we need to apply
-     * the same transformation here for consistent hit detection.
+     * This matches how zones are drawn: using transformSensorToRoom() then toCanvasX/Y.
      */
     toCanvasCoords(sensorX, sensorY) {
-        // First get unrotated canvas coords
-        const unrotatedX = this.radarCanvas.toCanvasX(sensorX);
-        const unrotatedY = this.radarCanvas.toCanvasY(sensorY);
+        // Transform sensor to room coordinates (same as zone drawing)
+        const room = this.radarCanvas.transformSensorToRoom(sensorX, sensorY);
 
-        // Apply the same visual rotation as the canvas context
-        const cx = this.radarCanvas.width / 2;
-        const cy = this.radarCanvas.height / 2;
-        const rotation = this.radarCanvas.mapRotation || 0;
-        const angle = rotation * Math.PI / 180;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-
-        const dx = unrotatedX - cx;
-        const dy = unrotatedY - cy;
-
+        // Then convert to canvas pixels
         return {
-            x: cx + dx * cos - dy * sin,
-            y: cy + dx * sin + dy * cos
+            x: this.radarCanvas.toCanvasX(room.x),
+            y: this.radarCanvas.toCanvasY(room.y)
         };
     }
 
