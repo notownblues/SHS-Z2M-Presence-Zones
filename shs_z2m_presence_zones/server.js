@@ -11,11 +11,14 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import mqtt from 'mqtt';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Room configurations storage path (persistent in /data/ for Home Assistant addons)
+const ROOM_CONFIGS_PATH = process.env.ROOM_CONFIGS_PATH || '/data/room_configs.json';
 
 // Configuration
 const PORT = process.env.PORT || 8099;
@@ -48,9 +51,50 @@ function loadConfig() {
 
 loadConfig();
 
+// ============================================================================
+// Room Configuration Storage Functions
+// ============================================================================
+
+/**
+ * Load all room configurations from persistent storage
+ */
+function loadRoomConfigs() {
+    try {
+        if (existsSync(ROOM_CONFIGS_PATH)) {
+            const raw = readFileSync(ROOM_CONFIGS_PATH, 'utf8');
+            const configs = JSON.parse(raw);
+            console.log(`[STORAGE] Loaded ${Object.keys(configs).length} room configurations`);
+            return configs;
+        }
+    } catch (error) {
+        console.error(`[STORAGE] Error loading room configs:`, error.message);
+    }
+    return {};
+}
+
+/**
+ * Save all room configurations to persistent storage
+ */
+function saveRoomConfigs(configs) {
+    try {
+        writeFileSync(ROOM_CONFIGS_PATH, JSON.stringify(configs, null, 2), 'utf8');
+        console.log(`[STORAGE] Saved ${Object.keys(configs).length} room configurations`);
+        return true;
+    } catch (error) {
+        console.error(`[STORAGE] Error saving room configs:`, error.message);
+        return false;
+    }
+}
+
+// In-memory cache of room configurations
+let roomConfigs = loadRoomConfigs();
+
 // Express app
 const app = express();
 const server = createServer(app);
+
+// JSON body parser for API endpoints
+app.use(express.json());
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -73,6 +117,95 @@ app.get('/config.json', (req, res) => {
             password: config.mqtt_password
         }
     });
+});
+
+// ============================================================================
+// Room Configuration API Endpoints
+// ============================================================================
+
+/**
+ * GET /api/rooms - List all saved room names
+ */
+app.get('/api/rooms', (req, res) => {
+    const roomNames = Object.keys(roomConfigs);
+    console.log(`[API] GET /api/rooms - Found ${roomNames.length} rooms`);
+    res.json({ rooms: roomNames });
+});
+
+/**
+ * GET /api/rooms/:name - Get configuration for a specific room
+ */
+app.get('/api/rooms/:name', (req, res) => {
+    const roomName = decodeURIComponent(req.params.name);
+    const config = roomConfigs[roomName];
+
+    if (config) {
+        console.log(`[API] GET /api/rooms/${roomName} - Found`);
+        res.json({ room: roomName, config });
+    } else {
+        console.log(`[API] GET /api/rooms/${roomName} - Not found`);
+        res.status(404).json({ error: 'Room not found' });
+    }
+});
+
+/**
+ * POST /api/rooms/:name - Save configuration for a specific room
+ */
+app.post('/api/rooms/:name', (req, res) => {
+    const roomName = decodeURIComponent(req.params.name);
+    const config = req.body;
+
+    if (!config || typeof config !== 'object') {
+        console.log(`[API] POST /api/rooms/${roomName} - Invalid config`);
+        return res.status(400).json({ error: 'Invalid configuration' });
+    }
+
+    // Add timestamp
+    config.lastModified = new Date().toISOString();
+
+    // Save to in-memory cache
+    roomConfigs[roomName] = config;
+
+    // Persist to file
+    if (saveRoomConfigs(roomConfigs)) {
+        console.log(`[API] POST /api/rooms/${roomName} - Saved successfully`);
+        res.json({ success: true, room: roomName });
+    } else {
+        console.error(`[API] POST /api/rooms/${roomName} - Failed to save`);
+        res.status(500).json({ error: 'Failed to save configuration' });
+    }
+});
+
+/**
+ * DELETE /api/rooms/:name - Delete configuration for a specific room
+ */
+app.delete('/api/rooms/:name', (req, res) => {
+    const roomName = decodeURIComponent(req.params.name);
+
+    if (!roomConfigs[roomName]) {
+        console.log(`[API] DELETE /api/rooms/${roomName} - Not found`);
+        return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Delete from in-memory cache
+    delete roomConfigs[roomName];
+
+    // Persist to file
+    if (saveRoomConfigs(roomConfigs)) {
+        console.log(`[API] DELETE /api/rooms/${roomName} - Deleted successfully`);
+        res.json({ success: true, room: roomName });
+    } else {
+        console.error(`[API] DELETE /api/rooms/${roomName} - Failed to delete`);
+        res.status(500).json({ error: 'Failed to delete configuration' });
+    }
+});
+
+/**
+ * GET /api/rooms-all - Get all room configurations (for initial load/sync)
+ */
+app.get('/api/rooms-all', (req, res) => {
+    console.log(`[API] GET /api/rooms-all - Returning ${Object.keys(roomConfigs).length} rooms`);
+    res.json({ configs: roomConfigs });
 });
 
 // WebSocket server for frontend connections
@@ -272,7 +405,7 @@ wss.on('connection', (ws) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.5.3`);
+    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.6.0`);
     console.log(`[SERVER] Listening on port ${PORT}`);
     console.log(`[SERVER] MQTT broker: ws://${config.mqtt_host}:${config.mqtt_ws_port}`);
 });

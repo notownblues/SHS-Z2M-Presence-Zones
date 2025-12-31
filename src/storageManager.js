@@ -1,39 +1,79 @@
 /**
  * StorageManager - Handles per-sensor configuration persistence
- * Stores zone configurations and annotations per MQTT topic
+ * Uses server-side storage API for cross-device synchronization
+ * Falls back to localStorage for development/non-addon mode
  */
 
 const SENSOR_CONFIGS_KEY = 'ld2450_sensor_configs';
-const MQTT_CREDENTIALS_KEY = 'ld2450_zone_config_settings';
 
 export class StorageManager {
     constructor() {
-        this.configs = this.loadAllConfigs();
+        this.configs = {};
+        this.initialized = false;
+        this.useServerStorage = true; // Will be set to false if server API is unavailable
     }
 
     /**
-     * Load all sensor configurations from localStorage
+     * Get the base path for API calls (handles HA ingress path)
      */
-    loadAllConfigs() {
+    getBasePath() {
+        let basePath = window.location.pathname;
+        if (basePath.endsWith('/')) {
+            basePath = basePath.slice(0, -1);
+        }
+        return basePath;
+    }
+
+    /**
+     * Initialize storage manager - load configs from server
+     * @returns {Promise<void>}
+     */
+    async init() {
+        if (this.initialized) return;
+
+        try {
+            // Try to load from server
+            const response = await fetch(`${this.getBasePath()}/api/rooms-all`);
+            if (response.ok) {
+                const data = await response.json();
+                this.configs = data.configs || {};
+                console.log(`[StorageManager] Loaded ${Object.keys(this.configs).length} rooms from server`);
+                this.useServerStorage = true;
+            } else {
+                throw new Error(`Server returned ${response.status}`);
+            }
+        } catch (error) {
+            console.warn('[StorageManager] Server storage unavailable, falling back to localStorage:', error.message);
+            this.useServerStorage = false;
+            this.configs = this.loadFromLocalStorage();
+        }
+
+        this.initialized = true;
+    }
+
+    /**
+     * Load configs from localStorage (fallback for development)
+     */
+    loadFromLocalStorage() {
         try {
             const saved = localStorage.getItem(SENSOR_CONFIGS_KEY);
             if (saved) {
                 return JSON.parse(saved);
             }
         } catch (error) {
-            console.error('Error loading sensor configs:', error);
+            console.error('Error loading sensor configs from localStorage:', error);
         }
         return {};
     }
 
     /**
-     * Save all configurations to localStorage
+     * Save configs to localStorage (fallback for development)
      */
-    saveAllConfigs() {
+    saveToLocalStorage() {
         try {
             localStorage.setItem(SENSOR_CONFIGS_KEY, JSON.stringify(this.configs));
         } catch (error) {
-            console.error('Error saving sensor configs:', error);
+            console.error('Error saving sensor configs to localStorage:', error);
         }
     }
 
@@ -50,37 +90,79 @@ export class StorageManager {
      * Save configuration for a specific room
      * @param {string} roomName - Room name
      * @param {object} config - Configuration object containing zones, annotations, and mqttTopic
+     * @returns {Promise<boolean>} - Success status
      */
-    saveSensorConfig(roomName, config) {
-        this.configs[roomName] = {
-            zones: config.zones || {
-                type: 0,
-                zones: [
-                    { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
-                    { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' },
-                    { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' }
-                ]
-            },
-            annotations: config.annotations || {
-                furniture: [],
-                entrances: [],
-                edges: []
-            },
+    async saveSensorConfig(roomName, config) {
+        const configData = {
+            zones: config.zones || this.getDefaultZoneConfig(),
+            annotations: config.annotations || this.getDefaultAnnotations(),
             mqttTopic: config.mqttTopic || '',
             mapRotation: config.mapRotation || 0,
             lastModified: new Date().toISOString()
         };
-        this.saveAllConfigs();
+
+        // Update local cache immediately for responsiveness
+        this.configs[roomName] = configData;
+
+        if (this.useServerStorage) {
+            try {
+                const response = await fetch(`${this.getBasePath()}/api/rooms/${encodeURIComponent(roomName)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(configData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+
+                console.log(`[StorageManager] Saved room "${roomName}" to server`);
+                return true;
+            } catch (error) {
+                console.error(`[StorageManager] Failed to save to server:`, error.message);
+                // Fall back to localStorage
+                this.saveToLocalStorage();
+                return false;
+            }
+        } else {
+            this.saveToLocalStorage();
+            return true;
+        }
     }
 
     /**
      * Delete configuration for a specific room
      * @param {string} roomName - Room name
+     * @returns {Promise<boolean>} - Success status
      */
-    deleteSensorConfig(roomName) {
-        if (this.configs[roomName]) {
-            delete this.configs[roomName];
-            this.saveAllConfigs();
+    async deleteSensorConfig(roomName) {
+        if (!this.configs[roomName]) {
+            return false;
+        }
+
+        // Update local cache immediately
+        delete this.configs[roomName];
+
+        if (this.useServerStorage) {
+            try {
+                const response = await fetch(`${this.getBasePath()}/api/rooms/${encodeURIComponent(roomName)}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok && response.status !== 404) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+
+                console.log(`[StorageManager] Deleted room "${roomName}" from server`);
+                return true;
+            } catch (error) {
+                console.error(`[StorageManager] Failed to delete from server:`, error.message);
+                this.saveToLocalStorage();
+                return false;
+            }
+        } else {
+            this.saveToLocalStorage();
+            return true;
         }
     }
 
@@ -176,17 +258,40 @@ export class StorageManager {
     /**
      * Import configurations from JSON string
      * @param {string} jsonString
-     * @returns {boolean} - Success status
+     * @returns {Promise<boolean>} - Success status
      */
-    importConfigs(jsonString) {
+    async importConfigs(jsonString) {
         try {
             const imported = JSON.parse(jsonString);
-            this.configs = { ...this.configs, ...imported };
-            this.saveAllConfigs();
+
+            // Merge with existing configs
+            for (const [roomName, config] of Object.entries(imported)) {
+                await this.saveSensorConfig(roomName, config);
+            }
+
             return true;
         } catch (error) {
             console.error('Error importing configs:', error);
             return false;
+        }
+    }
+
+    /**
+     * Refresh configs from server (useful for syncing between tabs/devices)
+     * @returns {Promise<void>}
+     */
+    async refresh() {
+        if (!this.useServerStorage) return;
+
+        try {
+            const response = await fetch(`${this.getBasePath()}/api/rooms-all`);
+            if (response.ok) {
+                const data = await response.json();
+                this.configs = data.configs || {};
+                console.log(`[StorageManager] Refreshed ${Object.keys(this.configs).length} rooms from server`);
+            }
+        } catch (error) {
+            console.warn('[StorageManager] Failed to refresh from server:', error.message);
         }
     }
 }

@@ -477,7 +477,7 @@ function triggerAutoSave() {
     // Clear any pending timeout
     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
 
-    // Save to localStorage
+    // Save to server (async, fire-and-forget)
     saveCurrentSensorConfig();
 
     // Show "Saved" after a brief delay
@@ -1264,13 +1264,13 @@ function loadSensorConfig(roomName) {
 /**
  * Save current configuration for the current room
  */
-function saveCurrentSensorConfig() {
+async function saveCurrentSensorConfig() {
     const roomName = elements.roomName.value;
     if (!roomName) {
         return false;
     }
 
-    storageManager.saveSensorConfig(roomName, {
+    await storageManager.saveSensorConfig(roomName, {
         zones: state.zones,
         annotations: state.annotations,
         mqttTopic: elements.mqttTopic.value,
@@ -1285,7 +1285,7 @@ function saveCurrentSensorConfig() {
 /**
  * Manually save room configuration with visual feedback
  */
-function saveRoomManually() {
+async function saveRoomManually() {
     const roomName = elements.roomName.value.trim();
 
     if (!roomName) {
@@ -1298,7 +1298,7 @@ function saveRoomManually() {
     elements.roomName.value = roomName;
 
     // Save the configuration
-    const saved = saveCurrentSensorConfig();
+    const saved = await saveCurrentSensorConfig();
 
     if (saved) {
         // Visual feedback on the save button
@@ -1322,7 +1322,7 @@ function saveRoomManually() {
 /**
  * Delete room configuration
  */
-function deleteRoom() {
+async function deleteRoom() {
     const roomName = elements.roomName.value.trim();
 
     if (!roomName) {
@@ -1342,7 +1342,7 @@ function deleteRoom() {
     }
 
     // Delete the configuration
-    storageManager.deleteSensorConfig(roomName);
+    await storageManager.deleteSensorConfig(roomName);
 
     // Clear current state
     elements.roomName.value = '';
@@ -1640,9 +1640,9 @@ zoneInputs.forEach(input => {
 });
 
 // Apply Zones Button
-elements.applyZonesBtn.addEventListener('click', () => {
+elements.applyZonesBtn.addEventListener('click', async () => {
     saveZoneFormValues();
-    saveCurrentSensorConfig(); // Save to localStorage
+    await saveCurrentSensorConfig(); // Save to server
     publishZoneConfig(); // Send to sensor via MQTT
 });
 
@@ -1902,6 +1902,10 @@ async function init() {
     if (elements.mqttStatusText) {
         elements.mqttStatusText.textContent = 'Initializing...';
     }
+
+    // Initialize storage manager (loads configs from server)
+    console.log('[INIT] Initializing storage manager...');
+    await storageManager.init();
 
     // Load saved room name from localStorage
     loadCredentials();
