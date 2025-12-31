@@ -297,7 +297,18 @@ export class RadarCanvas {
         // Draw grid
         this.drawGrid();
 
-        // Draw zones in sensor coordinates (canvas rotation handles visual display)
+        // Draw annotations (furniture, entrances) if provided - inside rotation for proper alignment
+        if (annotations) {
+            this.drawAnnotations(annotations);
+        }
+
+        // Draw sensor origin (inside rotated context so it moves with rotation)
+        this.drawSensorOrigin();
+
+        // Restore context after rotation
+        this.ctx.restore();
+
+        // Draw zones OUTSIDE the rotated context using explicit transformation (like targets)
         zones.forEach((zone, index) => {
             if (zone.enabled) {
                 this.drawZone(zone, index, index === this.selectedZoneIndex);
@@ -314,21 +325,10 @@ export class RadarCanvas {
             this.drawPreview(this.drawingPreview);
         }
 
-        // Draw annotations (furniture, entrances) if provided
-        if (annotations) {
-            this.drawAnnotations(annotations);
-        }
-
-        // Draw sensor origin (inside rotated context so it moves with rotation)
-        this.drawSensorOrigin();
-
-        // Draw targets INSIDE the rotated context (same transform as zones)
+        // Draw targets OUTSIDE the rotated context using explicit transformation
         targets.forEach((target, index) => {
             this.drawTarget(target, index);
         });
-
-        // Restore context after rotation
-        this.ctx.restore();
     }
 
     /**
@@ -1329,10 +1329,13 @@ export class RadarCanvas {
     }
 
     drawRectangleZone(zone, index, color, isSelected) {
-        const x1 = this.toCanvasX(zone.x1);
-        const y1 = this.toCanvasY(zone.y1);
-        const x2 = this.toCanvasX(zone.x2);
-        const y2 = this.toCanvasY(zone.y2);
+        // Transform zone coordinates the same way as targets for consistent display
+        const corner1 = this.transformSensorToRoom(zone.x1, zone.y1);
+        const corner2 = this.transformSensorToRoom(zone.x2, zone.y2);
+        const x1 = this.toCanvasX(corner1.x);
+        const y1 = this.toCanvasY(corner1.y);
+        const x2 = this.toCanvasX(corner2.x);
+        const y2 = this.toCanvasY(corner2.y);
 
         const width = x2 - x1;
         const height = y2 - y1;
@@ -1368,13 +1371,14 @@ export class RadarCanvas {
         const vertices = zone.vertices;
         if (!vertices || vertices.length < 3) return;
 
-        // Draw polygon fill
+        // Draw polygon fill - transform coordinates the same way as targets
         this.ctx.beginPath();
-        const first = vertices[0];
+        const first = this.transformSensorToRoom(vertices[0].x, vertices[0].y);
         this.ctx.moveTo(this.toCanvasX(first.x), this.toCanvasY(first.y));
 
         for (let i = 1; i < vertices.length; i++) {
-            this.ctx.lineTo(this.toCanvasX(vertices[i].x), this.toCanvasY(vertices[i].y));
+            const transformed = this.transformSensorToRoom(vertices[i].x, vertices[i].y);
+            this.ctx.lineTo(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y));
         }
         this.ctx.closePath();
 
@@ -1432,15 +1436,19 @@ export class RadarCanvas {
             // For polygons, draw handles at each vertex
             if (zone.vertices) {
                 zone.vertices.forEach(v => {
-                    this.drawHandle(this.toCanvasX(v.x), this.toCanvasY(v.y));
+                    const transformed = this.transformSensorToRoom(v.x, v.y);
+                    this.drawHandle(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y));
                 });
             }
         } else {
             // For rectangles, draw 8 handles (corners + midpoints)
-            const x1 = this.toCanvasX(zone.x1);
-            const y1 = this.toCanvasY(zone.y1);
-            const x2 = this.toCanvasX(zone.x2);
-            const y2 = this.toCanvasY(zone.y2);
+            // Transform coordinates the same way as zones/targets
+            const corner1 = this.transformSensorToRoom(zone.x1, zone.y1);
+            const corner2 = this.transformSensorToRoom(zone.x2, zone.y2);
+            const x1 = this.toCanvasX(corner1.x);
+            const y1 = this.toCanvasY(corner1.y);
+            const x2 = this.toCanvasX(corner2.x);
+            const y2 = this.toCanvasY(corner2.y);
             const midX = (x1 + x2) / 2;
             const midY = (y1 + y2) / 2;
 
@@ -1490,10 +1498,13 @@ export class RadarCanvas {
      * @param {boolean} isEdge - If true, use edge colors instead of zone colors
      */
     drawRectanglePreview(rect, isEdge = false) {
-        const x1 = this.toCanvasX(rect.x1);
-        const y1 = this.toCanvasY(rect.y1);
-        const x2 = this.toCanvasX(rect.x2);
-        const y2 = this.toCanvasY(rect.y2);
+        // Transform coordinates the same way as zones/targets
+        const corner1 = this.transformSensorToRoom(rect.x1, rect.y1);
+        const corner2 = this.transformSensorToRoom(rect.x2, rect.y2);
+        const x1 = this.toCanvasX(corner1.x);
+        const y1 = this.toCanvasY(corner1.y);
+        const x2 = this.toCanvasX(corner2.x);
+        const y2 = this.toCanvasY(corner2.y);
 
         // Fill - use edge color if drawing an edge
         this.ctx.fillStyle = isEdge ? this.COLORS.edgePreview : this.COLORS.preview;
@@ -1522,11 +1533,12 @@ export class RadarCanvas {
         if (vertices.length === 0) return;
 
         this.ctx.beginPath();
-        const first = vertices[0];
+        const first = this.transformSensorToRoom(vertices[0].x, vertices[0].y);
         this.ctx.moveTo(this.toCanvasX(first.x), this.toCanvasY(first.y));
 
         for (let i = 1; i < vertices.length; i++) {
-            this.ctx.lineTo(this.toCanvasX(vertices[i].x), this.toCanvasY(vertices[i].y));
+            const transformed = this.transformSensorToRoom(vertices[i].x, vertices[i].y);
+            this.ctx.lineTo(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y));
         }
 
         // If more than 2 vertices, close the polygon for preview
@@ -1561,10 +1573,10 @@ export class RadarCanvas {
     }
 
     drawTarget(target, index) {
-        // Use sensor coordinates directly - canvas rotation handles visual transform
-        // (targets are now drawn inside the rotated context, same as zones)
-        const x = this.toCanvasX(target.x);
-        const y = this.toCanvasY(target.y);
+        // Transform sensor coordinates to room/display coordinates based on rotation
+        const transformed = this.transformSensorToRoom(target.x, target.y);
+        const x = this.toCanvasX(transformed.x);
+        const y = this.toCanvasY(transformed.y);
 
         // Pulsating outer ring (blue, animates)
         const pulseRadius = 24 + Math.sin(Date.now() / 300 + index) * 5;
