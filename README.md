@@ -150,6 +150,8 @@ Place furniture on your floor plan to visualize your room layout. Supported obje
 
 The **Enable Position Reporting** button lets you toggle the sensor's Config Mode directly from the add-on. This is convenient for enabling real-time position data while configuring zones, then disabling it when done.
 
+> 🚨 **Warning:** Position Reporting significantly increases Zigbee network traffic. Only enable it temporarily while configuring zones, then disable it immediately after. Prolonged use may cause network instability on busy Zigbee networks.
+
 ### Multiple Room Support
 
 Save configurations for multiple rooms/sensors:
