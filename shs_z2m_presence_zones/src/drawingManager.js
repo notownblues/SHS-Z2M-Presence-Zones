@@ -43,17 +43,28 @@ export class DrawingManager {
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleContextMenu = this.handleContextMenu.bind(this);
 
+        // Touch event handlers
+        this.handleTouchStart = this.handleTouchStart.bind(this);
+        this.handleTouchMove = this.handleTouchMove.bind(this);
+        this.handleTouchEnd = this.handleTouchEnd.bind(this);
+
         // Attach event listeners
         this.bindEvents();
     }
 
     bindEvents() {
+        // Mouse events
         this.canvas.addEventListener('mousedown', this.handleMouseDown);
         this.canvas.addEventListener('mousemove', this.handleMouseMove);
         this.canvas.addEventListener('mouseup', this.handleMouseUp);
         this.canvas.addEventListener('dblclick', this.handleDoubleClick);
         this.canvas.addEventListener('contextmenu', this.handleContextMenu);
         document.addEventListener('keydown', this.handleKeyDown);
+
+        // Touch events for mobile support
+        this.canvas.addEventListener('touchstart', this.handleTouchStart, { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd, { passive: false });
     }
 
     destroy() {
@@ -63,6 +74,71 @@ export class DrawingManager {
         this.canvas.removeEventListener('dblclick', this.handleDoubleClick);
         this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
         document.removeEventListener('keydown', this.handleKeyDown);
+
+        // Remove touch events
+        this.canvas.removeEventListener('touchstart', this.handleTouchStart);
+        this.canvas.removeEventListener('touchmove', this.handleTouchMove);
+        this.canvas.removeEventListener('touchend', this.handleTouchEnd);
+    }
+
+    /**
+     * Convert touch event to mouse-like event coordinates
+     */
+    getTouchPosition(touchEvent) {
+        const touch = touchEvent.touches[0] || touchEvent.changedTouches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            offsetX: touch.clientX - rect.left,
+            offsetY: touch.clientY - rect.top
+        };
+    }
+
+    /**
+     * Handle touch start (maps to mousedown)
+     */
+    handleTouchStart(event) {
+        event.preventDefault();
+        const touchPos = this.getTouchPosition(event);
+        // Create a synthetic mouse event
+        const syntheticEvent = {
+            ...touchPos,
+            button: 0,
+            preventDefault: () => {},
+            target: event.target
+        };
+        this.handleMouseDown(syntheticEvent);
+    }
+
+    /**
+     * Handle touch move (maps to mousemove)
+     */
+    handleTouchMove(event) {
+        event.preventDefault();
+        const touchPos = this.getTouchPosition(event);
+        const syntheticEvent = {
+            ...touchPos,
+            button: 0,
+            preventDefault: () => {},
+            target: event.target
+        };
+        this.handleMouseMove(syntheticEvent);
+    }
+
+    /**
+     * Handle touch end (maps to mouseup)
+     */
+    handleTouchEnd(event) {
+        event.preventDefault();
+        const touchPos = this.getTouchPosition(event);
+        const syntheticEvent = {
+            ...touchPos,
+            button: 0,
+            preventDefault: () => {},
+            target: event.target
+        };
+        this.handleMouseUp(syntheticEvent);
     }
 
     /**

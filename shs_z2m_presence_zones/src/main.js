@@ -1466,14 +1466,17 @@ function updatePositionReportingButton() {
 
     // Update mobile button
     if (elements.positionReportingBtnMobile) {
+        const btnText = elements.positionReportingBtnMobile.querySelector('.btn-text');
         if (state.sensor.positionReporting) {
             elements.positionReportingBtnMobile.classList.add('btn-warning');
             elements.positionReportingBtnMobile.classList.remove('btn-purple');
             elements.positionReportingBtnMobile.title = 'Disable Position Reporting';
+            if (btnText) btnText.textContent = 'Disable Position Reporting';
         } else {
             elements.positionReportingBtnMobile.classList.remove('btn-warning');
             elements.positionReportingBtnMobile.classList.add('btn-purple');
             elements.positionReportingBtnMobile.title = 'Enable Position Reporting';
+            if (btnText) btnText.textContent = 'Enable Position Reporting';
         }
     }
 }
