@@ -322,13 +322,13 @@ export class RadarCanvas {
         // Draw sensor origin (inside rotated context so it moves with rotation)
         this.drawSensorOrigin();
 
-        // Restore context after rotation
-        this.ctx.restore();
-
-        // Draw targets OUTSIDE the rotated context using explicit transformation
+        // Draw targets INSIDE the rotated context (same transform as zones)
         targets.forEach((target, index) => {
             this.drawTarget(target, index);
         });
+
+        // Restore context after rotation
+        this.ctx.restore();
     }
 
     /**
@@ -1561,10 +1561,10 @@ export class RadarCanvas {
     }
 
     drawTarget(target, index) {
-        // Transform sensor coordinates to room/display coordinates based on rotation
-        const transformed = this.transformSensorToRoom(target.x, target.y);
-        const x = this.toCanvasX(transformed.x);
-        const y = this.toCanvasY(transformed.y);
+        // Use sensor coordinates directly - canvas rotation handles visual transform
+        // (targets are now drawn inside the rotated context, same as zones)
+        const x = this.toCanvasX(target.x);
+        const y = this.toCanvasY(target.y);
 
         // Pulsating outer ring (blue, animates)
         const pulseRadius = 24 + Math.sin(Date.now() / 300 + index) * 5;
