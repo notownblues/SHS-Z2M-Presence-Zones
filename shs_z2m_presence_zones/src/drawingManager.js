@@ -237,24 +237,77 @@ export class DrawingManager {
 
     /**
      * Convert canvas coords to sensor coords.
-     * Zones and targets are drawn using transformSensorToRoom(), so we need
-     * to apply the inverse transformation (transformRoomToSensor) here.
-     * Used for both drawing zones and hit detection.
+     * This accounts for map rotation by undoing the visual rotation
+     * before converting to sensor coordinates.
+     * Used for furniture, entrances, and other items drawn inside ctx.rotate().
      */
     toSensorCoords(canvasX, canvasY) {
-        // First convert canvas pixels to room coordinates (mm)
+        // Undo the visual rotation to get the unrotated canvas position
+        const cx = this.radarCanvas.width / 2;
+        const cy = this.radarCanvas.height / 2;
+        const rotation = this.radarCanvas.mapRotation || 0;
+        const angle = -rotation * Math.PI / 180; // Negative to inverse rotate
+
+        const dx = canvasX - cx;
+        const dy = canvasY - cy;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const unrotatedX = cx + dx * cos - dy * sin;
+        const unrotatedY = cy + dx * sin + dy * cos;
+
+        // Convert to sensor coordinates
+        return {
+            x: this.radarCanvas.toSensorX(unrotatedX),
+            y: this.radarCanvas.toSensorY(unrotatedY)
+        };
+    }
+
+    /**
+     * Convert canvas coords to sensor coords for zones.
+     * Zones are drawn using transformSensorToRoom() outside ctx.rotate(),
+     * so we need to use transformRoomToSensor() here.
+     */
+    toSensorCoordsForZone(canvasX, canvasY) {
+        // Convert canvas pixels to room coordinates (mm)
         const roomX = this.radarCanvas.toSensorX(canvasX);
         const roomY = this.radarCanvas.toSensorY(canvasY);
 
-        // Then transform from room coordinates to sensor coordinates
+        // Transform from room coordinates to sensor coordinates
         return this.radarCanvas.transformRoomToSensor(roomX, roomY);
     }
 
     /**
      * Convert sensor coords to canvas coords for hit detection.
-     * This matches how zones are drawn: using transformSensorToRoom() then toCanvasX/Y.
+     * Since zones are drawn in the rotated canvas context, we need to apply
+     * the same transformation here for consistent hit detection.
      */
     toCanvasCoords(sensorX, sensorY) {
+        // First get unrotated canvas coords
+        const unrotatedX = this.radarCanvas.toCanvasX(sensorX);
+        const unrotatedY = this.radarCanvas.toCanvasY(sensorY);
+
+        // Apply the same visual rotation as the canvas context
+        const cx = this.radarCanvas.width / 2;
+        const cy = this.radarCanvas.height / 2;
+        const rotation = this.radarCanvas.mapRotation || 0;
+        const angle = rotation * Math.PI / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        const dx = unrotatedX - cx;
+        const dy = unrotatedY - cy;
+
+        return {
+            x: cx + dx * cos - dy * sin,
+            y: cy + dx * sin + dy * cos
+        };
+    }
+
+    /**
+     * Convert sensor coords to canvas coords for zones.
+     * Zones are drawn using transformSensorToRoom() outside ctx.rotate().
+     */
+    toCanvasCoordsForZone(sensorX, sensorY) {
         // Transform sensor to room coordinates (same as zone drawing)
         const room = this.radarCanvas.transformSensorToRoom(sensorX, sensorY);
 
@@ -349,6 +402,38 @@ export class DrawingManager {
     }
 
     /**
+     * Get resize handle at point for zones (uses zone-specific coordinate conversion)
+     * Zones are drawn using transformSensorToRoom() outside ctx.rotate()
+     */
+    getHandleAtPointForZone(canvasX, canvasY, zone, zoneIndex) {
+        if (!zone.enabled || zone.shapeType === 'polygon') return null;
+
+        const corners = this.getZoneCorners(zone);
+        const handles = [
+            { type: 'nw', x: corners.x1, y: corners.y2, updateX: 'x1', updateY: 'y2' },
+            { type: 'ne', x: corners.x2, y: corners.y2, updateX: 'x2', updateY: 'y2' },
+            { type: 'sw', x: corners.x1, y: corners.y1, updateX: 'x1', updateY: 'y1' },
+            { type: 'se', x: corners.x2, y: corners.y1, updateX: 'x2', updateY: 'y1' },
+            { type: 'n', x: (corners.x1 + corners.x2) / 2, y: corners.y2, updateX: null, updateY: 'y2' },
+            { type: 's', x: (corners.x1 + corners.x2) / 2, y: corners.y1, updateX: null, updateY: 'y1' },
+            { type: 'w', x: corners.x1, y: (corners.y1 + corners.y2) / 2, updateX: 'x1', updateY: null },
+            { type: 'e', x: corners.x2, y: (corners.y1 + corners.y2) / 2, updateX: 'x2', updateY: null }
+        ];
+
+        for (const handle of handles) {
+            // Use zone-specific coordinate conversion
+            const canvasHandle = this.toCanvasCoordsForZone(handle.x, handle.y);
+            const dx = canvasX - canvasHandle.x;
+            const dy = canvasY - canvasHandle.y;
+            if (Math.sqrt(dx * dx + dy * dy) <= this.handleSize) {
+                return { ...handle, zoneIndex };
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Get zone corners in sensor coordinates
      */
     getZoneCorners(zone) {
@@ -403,6 +488,8 @@ export class DrawingManager {
     handleMouseDown(event) {
         const canvasCoords = this.getCanvasCoords(event);
         const sensorCoords = this.toSensorCoords(canvasCoords.x, canvasCoords.y);
+        // For zones, use zone-specific coordinate conversion
+        const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
 
         // Right-click drag for selected items
         if (event.button === 2) {
@@ -421,10 +508,12 @@ export class DrawingManager {
                 this.handleSelectMouseDown(canvasCoords, sensorCoords);
                 break;
             case 'draw-rectangle':
-                this.handleRectangleMouseDown(sensorCoords);
+                // Zone drawing uses zone-specific coordinates
+                this.handleRectangleMouseDown(zoneSensorCoords);
                 break;
             case 'draw-polygon':
-                this.handlePolygonClick(sensorCoords);
+                // Zone drawing uses zone-specific coordinates
+                this.handlePolygonClick(zoneSensorCoords);
                 break;
             case 'place-furniture':
                 this.handleFurniturePlacement(sensorCoords);
@@ -442,16 +531,19 @@ export class DrawingManager {
      * Handle right-click drag for moving selected items
      */
     handleRightClickDrag(canvasCoords, sensorCoords) {
+        // For zones, use zone-specific coordinate conversion
+        const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
+
         // Check if we're clicking on the selected zone
         if (this.selectedZoneIndex !== null) {
             const zone = this.state.zones.zones[this.selectedZoneIndex];
-            if (zone && zone.enabled && this.isPointInZone(sensorCoords.x, sensorCoords.y, zone)) {
+            if (zone && zone.enabled && this.isPointInZone(zoneSensorCoords.x, zoneSensorCoords.y, zone)) {
                 this.isRightClickDragging = true;
                 this.isDragging = true;
                 const corners = this.getZoneCorners(zone);
                 this.dragOffset = {
-                    x: sensorCoords.x - (corners.x1 + corners.x2) / 2,
-                    y: sensorCoords.y - (corners.y1 + corners.y2) / 2
+                    x: zoneSensorCoords.x - (corners.x1 + corners.x2) / 2,
+                    y: zoneSensorCoords.y - (corners.y1 + corners.y2) / 2
                 };
                 this.canvas.style.cursor = 'move';
                 return;
@@ -508,6 +600,9 @@ export class DrawingManager {
      * Handle select mode mouse down
      */
     handleSelectMouseDown(canvasCoords, sensorCoords) {
+        // For zones, use zone-specific coordinate conversion
+        const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
+
         // Check for handle click first (for selected furniture - resizing)
         if (this.selectedFurnitureIndex !== null) {
             const furniture = this.state.annotations.furniture[this.selectedFurnitureIndex];
@@ -533,20 +628,20 @@ export class DrawingManager {
         // Check for handle click (for selected zone - resizing)
         if (this.selectedZoneIndex !== null) {
             const zone = this.state.zones.zones[this.selectedZoneIndex];
-            const handle = this.getHandleAtPoint(canvasCoords.x, canvasCoords.y, zone, this.selectedZoneIndex);
+            const handle = this.getHandleAtPointForZone(canvasCoords.x, canvasCoords.y, zone, this.selectedZoneIndex);
             if (handle) {
                 this.selectedHandle = { ...handle, itemType: 'zone' };
                 this.isDragging = true;
-                this.startPoint = sensorCoords;
+                this.startPoint = zoneSensorCoords;
                 return;
             }
             // If clicking on already-selected zone (not handle), start dragging
-            if (zone.enabled && this.isPointInZone(sensorCoords.x, sensorCoords.y, zone)) {
+            if (zone.enabled && this.isPointInZone(zoneSensorCoords.x, zoneSensorCoords.y, zone)) {
                 this.isDragging = true;
                 const corners = this.getZoneCorners(zone);
                 this.dragOffset = {
-                    x: sensorCoords.x - (corners.x1 + corners.x2) / 2,
-                    y: sensorCoords.y - (corners.y1 + corners.y2) / 2
+                    x: zoneSensorCoords.x - (corners.x1 + corners.x2) / 2,
+                    y: zoneSensorCoords.y - (corners.y1 + corners.y2) / 2
                 };
                 this.canvas.style.cursor = 'move';
                 return;
@@ -615,10 +710,10 @@ export class DrawingManager {
             }
         }
 
-        // Check for zone click
+        // Check for zone click (use zone-specific coordinates)
         for (let i = 0; i < this.state.zones.zones.length; i++) {
             const zone = this.state.zones.zones[i];
-            if (this.isPointInZone(sensorCoords.x, sensorCoords.y, zone)) {
+            if (this.isPointInZone(zoneSensorCoords.x, zoneSensorCoords.y, zone)) {
                 this.clearOtherSelections('zone');
                 this.selectedZoneIndex = i;
                 if (this.callbacks.onZoneSelect) {
@@ -848,7 +943,9 @@ export class DrawingManager {
     handleMouseMove(event) {
         const canvasCoords = this.getCanvasCoords(event);
         const sensorCoords = this.toSensorCoords(canvasCoords.x, canvasCoords.y);
-        this.currentPoint = sensorCoords;
+        // For zones, use zone-specific coordinate conversion
+        const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
+        this.currentPoint = zoneSensorCoords; // For zone drawing, use zone coords
 
         switch (this.mode) {
             case 'select':
@@ -857,12 +954,12 @@ export class DrawingManager {
                 break;
             case 'draw-rectangle':
                 if (this.isDrawing) {
-                    this.updateRectanglePreview(sensorCoords);
+                    this.updateRectanglePreview(zoneSensorCoords);
                 }
                 break;
             case 'draw-polygon':
                 if (this.polygonVertices.length > 0) {
-                    this.updatePolygonPreview(sensorCoords);
+                    this.updatePolygonPreview(zoneSensorCoords);
                 }
                 break;
             case 'draw-edge':
@@ -894,10 +991,13 @@ export class DrawingManager {
      * Handle select mode mouse move
      */
     handleSelectMouseMove(canvasCoords, sensorCoords) {
+        // For zones, use zone-specific coordinate conversion
+        const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
+
         // Handle explicit move mode (Move button was clicked)
         if (this.isMoving) {
             if (this.movingItemType === 'zone') {
-                this.moveZoneToPosition(sensorCoords);
+                this.moveZoneToPosition(zoneSensorCoords);
             } else if (this.movingItemType === 'furniture') {
                 this.moveFurnitureToPosition(sensorCoords);
             } else if (this.movingItemType === 'entrance') {
@@ -920,14 +1020,14 @@ export class DrawingManager {
                 }
             }
 
-            // Update cursor for zone handles
+            // Update cursor for zone handles (use zone-specific coordinates)
             if (this.selectedZoneIndex !== null) {
                 const zone = this.state.zones.zones[this.selectedZoneIndex];
-                const handle = this.getHandleAtPoint(canvasCoords.x, canvasCoords.y, zone, this.selectedZoneIndex);
+                const handle = this.getHandleAtPointForZone(canvasCoords.x, canvasCoords.y, zone, this.selectedZoneIndex);
                 if (handle) {
                     this.canvas.style.cursor = this.getHandleCursor(handle.type);
                     return;
-                } else if (this.isPointInZone(sensorCoords.x, sensorCoords.y, zone)) {
+                } else if (this.isPointInZone(zoneSensorCoords.x, zoneSensorCoords.y, zone)) {
                     this.canvas.style.cursor = 'move';
                     return;
                 }
@@ -954,9 +1054,9 @@ export class DrawingManager {
                 }
             }
 
-            // Check if hovering over any zone
+            // Check if hovering over any zone (use zone-specific coordinates)
             for (const zone of this.state.zones.zones) {
-                if (this.isPointInZone(sensorCoords.x, sensorCoords.y, zone)) {
+                if (this.isPointInZone(zoneSensorCoords.x, zoneSensorCoords.y, zone)) {
                     this.canvas.style.cursor = 'pointer';
                     return;
                 }
@@ -973,14 +1073,16 @@ export class DrawingManager {
             } else if (this.selectedHandle.itemType === 'edge') {
                 this.resizeEdge(sensorCoords);
             } else {
-                this.resizeZone(sensorCoords);
+                // Zone resizing uses zone-specific coordinates
+                this.resizeZone(zoneSensorCoords);
             }
         } else if (this.selectedEntranceIndex !== null) {
             this.moveEntrance(sensorCoords);
         } else if (this.selectedFurnitureIndex !== null) {
             this.moveFurniture(sensorCoords);
         } else if (this.selectedZoneIndex !== null) {
-            this.moveZone(sensorCoords);
+            // Zone moving uses zone-specific coordinates
+            this.moveZone(zoneSensorCoords);
         } else if (this.selectedEdgeIndex !== null) {
             this.moveEdge(sensorCoords);
         }
@@ -1346,6 +1448,8 @@ export class DrawingManager {
     handleMouseUp(event) {
         const canvasCoords = this.getCanvasCoords(event);
         const sensorCoords = this.toSensorCoords(canvasCoords.x, canvasCoords.y);
+        // For zones, use zone-specific coordinate conversion
+        const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
 
         // Handle right-click release (end drag)
         if (event.button === 2 && this.isRightClickDragging) {
@@ -1368,7 +1472,8 @@ export class DrawingManager {
                 break;
             case 'draw-rectangle':
                 if (this.isDrawing) {
-                    this.finishRectangle(sensorCoords);
+                    // Zone drawing uses zone-specific coordinates
+                    this.finishRectangle(zoneSensorCoords);
                 }
                 break;
             case 'draw-edge':
