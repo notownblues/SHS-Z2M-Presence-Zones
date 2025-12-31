@@ -16,6 +16,14 @@
                     <span class="status-indicator" id="mqttStatus"></span>
                     <span id="mqttStatusText">Disconnected from MQTT</span>
                 </div>
+                <!-- Mobile-only position reporting button in header -->
+                <button id="positionReportingBtnMobile" class="btn btn-purple btn-header-mobile" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+                    </svg>
+                    <span class="btn-text">Position</span>
+                </button>
                 <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle Dark/Light Mode">
                     <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="5"/>
@@ -32,8 +40,23 @@
         <main class="main-content">
             <!-- Left Sidebar: Furniture/Objects -->
             <aside class="furniture-sidebar" id="furnitureSidebar">
-                <h3 class="sidebar-title">Objects</h3>
-                <div class="furniture-grid">
+                <div class="sidebar-header">
+                    <h3 class="sidebar-title">Objects</h3>
+                    <!-- Mobile scroll arrows -->
+                    <div class="scroll-arrows" id="scrollArrows">
+                        <button class="scroll-arrow scroll-left" id="scrollLeft" title="Scroll left">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"/>
+                            </svg>
+                        </button>
+                        <button class="scroll-arrow scroll-right" id="scrollRight" title="Scroll right">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="furniture-grid" id="furnitureGrid">
                     <!-- Seating -->
                     <button class="furniture-item" data-mode="place-furniture" data-furniture="chair" title="Armchair">
                         <svg width="32" height="32" viewBox="0 0 48 48">

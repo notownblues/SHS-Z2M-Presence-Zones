@@ -90,6 +90,12 @@ const elements = {
     deleteRoomBtn: document.getElementById('deleteRoomBtn'),
     sensorSelector: document.getElementById('sensorSelector'),
     positionReportingBtn: document.getElementById('positionReportingBtn'),
+    positionReportingBtnMobile: document.getElementById('positionReportingBtnMobile'),
+
+    // Mobile scroll controls
+    furnitureGrid: document.getElementById('furnitureGrid'),
+    scrollLeft: document.getElementById('scrollLeft'),
+    scrollRight: document.getElementById('scrollRight'),
 
     // Dark Mode Toggle
     darkModeToggle: document.getElementById('darkModeToggle'),
@@ -837,10 +843,16 @@ function handleBackendMessage(message) {
                 if (elements.positionReportingBtn) {
                     elements.positionReportingBtn.disabled = false;
                 }
+                if (elements.positionReportingBtnMobile) {
+                    elements.positionReportingBtnMobile.disabled = false;
+                }
             } else {
                 updateConnectionStatus(false, message.error);
                 if (elements.positionReportingBtn) {
                     elements.positionReportingBtn.disabled = true;
+                }
+                if (elements.positionReportingBtnMobile) {
+                    elements.positionReportingBtnMobile.disabled = true;
                 }
             }
             break;
@@ -1439,16 +1451,30 @@ function updateTargetListDisplay() {
 }
 
 function updatePositionReportingButton() {
-    if (!elements.positionReportingBtn) return;
+    // Update desktop button
+    if (elements.positionReportingBtn) {
+        if (state.sensor.positionReporting) {
+            elements.positionReportingBtn.textContent = 'Disable Position Reporting';
+            elements.positionReportingBtn.classList.add('btn-warning');
+            elements.positionReportingBtn.classList.remove('btn-secondary');
+        } else {
+            elements.positionReportingBtn.textContent = 'Enable Position Reporting';
+            elements.positionReportingBtn.classList.remove('btn-warning');
+            elements.positionReportingBtn.classList.add('btn-secondary');
+        }
+    }
 
-    if (state.sensor.positionReporting) {
-        elements.positionReportingBtn.textContent = 'Disable Position Reporting';
-        elements.positionReportingBtn.classList.add('btn-warning');
-        elements.positionReportingBtn.classList.remove('btn-secondary');
-    } else {
-        elements.positionReportingBtn.textContent = 'Enable Position Reporting';
-        elements.positionReportingBtn.classList.remove('btn-warning');
-        elements.positionReportingBtn.classList.add('btn-secondary');
+    // Update mobile button
+    if (elements.positionReportingBtnMobile) {
+        if (state.sensor.positionReporting) {
+            elements.positionReportingBtnMobile.classList.add('btn-warning');
+            elements.positionReportingBtnMobile.classList.remove('btn-purple');
+            elements.positionReportingBtnMobile.title = 'Disable Position Reporting';
+        } else {
+            elements.positionReportingBtnMobile.classList.remove('btn-warning');
+            elements.positionReportingBtnMobile.classList.add('btn-purple');
+            elements.positionReportingBtnMobile.title = 'Enable Position Reporting';
+        }
     }
 }
 
@@ -1661,6 +1687,11 @@ if (elements.positionReportingBtn) {
     elements.positionReportingBtn.addEventListener('click', togglePositionReporting);
 }
 
+// Mobile Position Reporting Toggle Button
+if (elements.positionReportingBtnMobile) {
+    elements.positionReportingBtnMobile.addEventListener('click', togglePositionReporting);
+}
+
 // Sensor Selector
 if (elements.sensorSelector) {
     elements.sensorSelector.addEventListener('change', handleSensorSelection);
@@ -1674,6 +1705,33 @@ if (elements.saveRoomBtn) {
 // Delete Room Button
 if (elements.deleteRoomBtn) {
     elements.deleteRoomBtn.addEventListener('click', deleteRoom);
+}
+
+// Mobile Scroll Arrows for Objects Sidebar
+if (elements.scrollLeft && elements.scrollRight && elements.furnitureGrid) {
+    const scrollAmount = 150; // pixels to scroll
+
+    elements.scrollLeft.addEventListener('click', () => {
+        elements.furnitureGrid.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    });
+
+    elements.scrollRight.addEventListener('click', () => {
+        elements.furnitureGrid.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    });
+
+    // Update arrow states based on scroll position
+    function updateScrollArrows() {
+        const grid = elements.furnitureGrid;
+        const atStart = grid.scrollLeft <= 0;
+        const atEnd = grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 1;
+
+        elements.scrollLeft.disabled = atStart;
+        elements.scrollRight.disabled = atEnd;
+    }
+
+    elements.furnitureGrid.addEventListener('scroll', updateScrollArrows);
+    // Initial state
+    setTimeout(updateScrollArrows, 100);
 }
 
 // Toolbar Buttons
