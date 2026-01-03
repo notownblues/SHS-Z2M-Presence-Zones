@@ -62,6 +62,39 @@ Add this repository to your Home Assistant Add-on Store:
 
 ---
 
+## Docker Standalone Installation
+
+  For users **not running Home Assistant OS/Supervised**
+
+  ### Quick Start
+
+  1. Clone the repository:
+     ```bash
+     git clone https://github.com/notownblues/SHS-Z2M-Presence-Zones.git
+     cd SHS-Z2M-Presence-Zones/docker-standalone
+
+  2. Edit docker-compose.yml with your MQTT broker settings:
+     ```yaml
+     environment:
+       - MQTT_HOST=192.168.1.100    # Your MQTT broker IP
+       - MQTT_WS_PORT=1884          # WebSocket port (not 1883!)
+       - MQTT_USERNAME=             # Optional
+       - MQTT_PASSWORD=             # Optional
+     ```
+  3. Start the container:
+  docker compose up -d
+  4. Access the web UI at: http://localhost:8099
+
+  Requirements
+
+  - Docker and Docker Compose
+  - MQTT broker with WebSocket enabled (port 1884)
+  - Zigbee2MQTT connected to your broker
+
+  Note: See docker-standalone/README.md for detailed instructions, networking tips, and troubleshooting.
+
+---
+
 ## How It Works
 
 ### Connecting to Your Sensor
@@ -223,3 +256,4 @@ Contributions are welcome! Feel free to:
 ## Credits
 
 This add-on is part of the SHS Z2M Presence project, built upon the excellent work from **[Smart Home Scene](https://smarthomescene.com)**.
+
