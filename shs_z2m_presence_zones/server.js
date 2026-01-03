@@ -74,15 +74,25 @@ let config = {
 function loadConfig() {
     try {
         if (existsSync(CONFIG_PATH)) {
+            // Home Assistant addon mode: load from options.json
             const raw = readFileSync(CONFIG_PATH, 'utf8');
             config = JSON.parse(raw);
             console.log(`[CONFIG] Loaded from ${CONFIG_PATH}`);
-            console.log(`[CONFIG] MQTT Host: ${config.mqtt_host}`);
-            console.log(`[CONFIG] MQTT WS Port: ${config.mqtt_ws_port}`);
-            console.log(`[CONFIG] MQTT Username: ${config.mqtt_username ? '(set)' : '(not set)'}`);
+        } else if (process.env.MQTT_HOST) {
+            // Docker standalone mode: load from environment variables
+            config = {
+                mqtt_host: process.env.MQTT_HOST,
+                mqtt_ws_port: parseInt(process.env.MQTT_WS_PORT) || 1884,
+                mqtt_username: process.env.MQTT_USERNAME || '',
+                mqtt_password: process.env.MQTT_PASSWORD || ''
+            };
+            console.log(`[CONFIG] Loaded from environment variables`);
         } else {
             console.log(`[CONFIG] ${CONFIG_PATH} not found, using defaults`);
         }
+        console.log(`[CONFIG] MQTT Host: ${config.mqtt_host}`);
+        console.log(`[CONFIG] MQTT WS Port: ${config.mqtt_ws_port}`);
+        console.log(`[CONFIG] MQTT Username: ${config.mqtt_username ? '(set)' : '(not set)'}`);
     } catch (error) {
         console.error(`[CONFIG] Error loading config:`, error.message);
     }
@@ -461,7 +471,7 @@ wss.on('connection', (ws) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.6.11`);
+    console.log(`[SERVER] SHS Z2M Presence Zone Configurator v2.7.0`);
     console.log(`[SERVER] Listening on port ${PORT}`);
     console.log(`[SERVER] MQTT broker: ws://${config.mqtt_host}:${config.mqtt_ws_port}`);
     console.log(`[STORAGE] Room configs path: ${ROOM_CONFIGS_PATH}`);

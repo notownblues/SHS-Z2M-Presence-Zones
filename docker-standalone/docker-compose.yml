@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  shs-presence-zones:
+    build:
+      context: ..
+      dockerfile: docker-standalone/Dockerfile
+    container_name: shs-presence-zones
+    ports:
+      - "8099:8099"
+    environment:
+      - MQTT_HOST=localhost          # Your MQTT broker hostname/IP
+      - MQTT_WS_PORT=1884            # MQTT WebSocket port (not 1883!)
+      - MQTT_USERNAME=               # MQTT username (optional)
+      - MQTT_PASSWORD=               # MQTT password (optional)
+    volumes:
+      - shs-data:/data               # Persist room configurations
+    restart: unless-stopped
+
+volumes:
+  shs-data:
