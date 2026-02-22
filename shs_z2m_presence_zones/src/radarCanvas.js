@@ -192,8 +192,8 @@ export class RadarCanvas {
 
         switch (this.mapRotation) {
             case 0:
-                // Sensor at bottom looking up - no change
-                return { x: sensorX, y: sensorY };
+                // Sensor at bottom looking up - negate X (sensor X-axis is mirrored)
+                return { x: -sensorX, y: sensorY };
             case 90:
                 // Sensor on left looking right
                 // sensor LEFT (X-) = visual TOP, sensor RIGHT (X+) = visual BOTTOM
@@ -201,8 +201,8 @@ export class RadarCanvas {
                 return { x: sensorY - 3000, y: sensorX + 3000 };
             case 180:
                 // Sensor on top looking down
-                // Flip X, invert Y
-                return { x: -sensorX, y: Y_MAX - sensorY };
+                // Invert Y (X negation cancels out with 180° flip)
+                return { x: sensorX, y: Y_MAX - sensorY };
             case 270:
                 // Sensor on right looking left
                 // sensor LEFT (X-) = visual BOTTOM, sensor RIGHT (X+) = visual TOP
@@ -222,14 +222,14 @@ export class RadarCanvas {
 
         switch (this.mapRotation) {
             case 0:
-                return { x: roomX, y: roomY };
+                return { x: -roomX, y: roomY };
             case 90:
                 // Inverse of 90° transform: x = sensorY - 3000, y = sensorX + 3000
                 // So: sensorX = roomY - 3000, sensorY = roomX + 3000
                 return { x: roomY - 3000, y: roomX + 3000 };
             case 180:
                 // Inverse of 180° transform
-                return { x: -roomX, y: Y_MAX - roomY };
+                return { x: roomX, y: Y_MAX - roomY };
             case 270:
                 // Inverse of 270° transform: x = 3000 - sensorY, y = 3000 - sensorX
                 // So: sensorY = 3000 - roomX, sensorX = 3000 - roomY
