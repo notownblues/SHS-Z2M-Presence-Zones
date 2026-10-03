@@ -240,8 +240,10 @@ export class RadarCanvas {
     }
 
     /**
-     * Room edges are visual only. Wall mounts keep them in sensor coordinates (unchanged behaviour);
-     * corner mounts store them in room coordinates so they stay aligned with the walls.
+     * Zones, room edges and the room outline share one coordinate system ("edge coordinates").
+     * Wall mounts keep them in sensor coordinates (unchanged behaviour); corner mounts store
+     * them in room coordinates so they stay aligned with the walls. Zones and the outline are
+     * converted to sensor coordinates when sent to the sensor.
      */
     edgeToDisplay(x, y) {
         if (this.isCornerMount()) {
@@ -252,6 +254,7 @@ export class RadarCanvas {
 
     /**
      * Canvas points for the 4 corners of a sensor-frame rectangle (corner mount: drawn tilted).
+     * Used for the corner mount's sensor coverage outline.
      */
     getSensorRectCanvasPoints(x1, y1, x2, y2) {
         return [
@@ -287,10 +290,16 @@ export class RadarCanvas {
         if (this.isCornerMount()) {
             return this.cornerSensorToRoom(sensorX, sensorY);
         }
+        return this.wallSensorToRoom(sensorX, sensorY, this.mapRotation);
+    }
 
+    /**
+     * Wall mount: sensor coordinates -> room/display coordinates for a given map rotation
+     */
+    wallSensorToRoom(sensorX, sensorY, rotation) {
         const Y_MAX = this.SENSOR_RANGE.Y_MAX; // 6000mm
 
-        switch (this.mapRotation) {
+        switch (rotation) {
             case 0:
                 // Sensor at bottom looking up - negate X (sensor X-axis is mirrored)
                 return { x: -sensorX, y: sensorY };
@@ -321,10 +330,16 @@ export class RadarCanvas {
         if (this.isCornerMount()) {
             return this.cornerRoomToSensor(roomX, roomY);
         }
+        return this.wallRoomToSensor(roomX, roomY, this.mapRotation);
+    }
 
+    /**
+     * Wall mount: room/display coordinates -> sensor coordinates (inverse of wallSensorToRoom)
+     */
+    wallRoomToSensor(roomX, roomY, rotation) {
         const Y_MAX = this.SENSOR_RANGE.Y_MAX; // 6000mm
 
-        switch (this.mapRotation) {
+        switch (rotation) {
             case 0:
                 return { x: -roomX, y: roomY };
             case 90:
@@ -1472,7 +1487,7 @@ export class RadarCanvas {
         this.ctx.arc(originCanvasX, originCanvasY, this.SENSOR_RANGE.Y_MAX * this.scaleX, 0, Math.PI * 2);
         this.ctx.stroke();
 
-        // Area the sensor accepts zones in (X ±3m, Y 0-6m in sensor axes)
+        // Sensor coverage (X ±3m, Y 0-6m in sensor axes); zone parts outside it never see targets
         const bounds = this.getSensorRectCanvasPoints(
             this.SENSOR_RANGE.X_MIN, this.SENSOR_RANGE.Y_MIN,
             this.SENSOR_RANGE.X_MAX, this.SENSOR_RANGE.Y_MAX
@@ -1547,14 +1562,9 @@ export class RadarCanvas {
     }
 
     drawRectangleZone(zone, index, color, isSelected) {
-        if (this.isCornerMount()) {
-            this.drawTiltedRectangleZone(zone, index, color, isSelected);
-            return;
-        }
-
         // Transform zone coordinates the same way as targets for consistent display
-        const corner1 = this.transformSensorToRoom(zone.x1, zone.y1);
-        const corner2 = this.transformSensorToRoom(zone.x2, zone.y2);
+        const corner1 = this.edgeToDisplay(zone.x1, zone.y1);
+        const corner2 = this.edgeToDisplay(zone.x2, zone.y2);
         const x1 = this.toCanvasX(corner1.x);
         const y1 = this.toCanvasY(corner1.y);
         const x2 = this.toCanvasX(corner2.x);
@@ -1593,23 +1603,7 @@ export class RadarCanvas {
     }
 
     /**
-     * Corner mount: sensor-axis rectangles appear rotated 45° on the room map
-     */
-    drawTiltedRectangleZone(zone, index, color, isSelected) {
-        const points = this.getSensorRectCanvasPoints(zone.x1, zone.y1, zone.x2, zone.y2);
-
-        this.tracePolygonPath(points);
-        this.ctx.fillStyle = color.fill;
-        this.ctx.fill();
-        this.ctx.strokeStyle = isSelected ? this.COLORS.selection : color.border;
-        this.ctx.lineWidth = isSelected ? 3 : 2;
-        this.ctx.stroke();
-
-        this.drawZoneLabel(zone, index, color, points);
-    }
-
-    /**
-     * Zone label centred on a set of canvas points (corner mount)
+     * Zone label centred on a set of canvas points
      */
     drawZoneLabel(zone, index, color, points) {
         const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
@@ -1633,17 +1627,13 @@ export class RadarCanvas {
         const vertices = zone.vertices;
         if (!vertices || vertices.length < 3) return;
 
-        // Draw polygon fill - transform coordinates the same way as targets
-        this.ctx.beginPath();
-        const first = this.transformSensorToRoom(vertices[0].x, vertices[0].y);
-        this.ctx.moveTo(this.toCanvasX(first.x), this.toCanvasY(first.y));
+        // The sensor receives the polygon itself (firmware v1.3.0+)
+        const points = vertices.map(v => {
+            const p = this.edgeToDisplay(v.x, v.y);
+            return { x: this.toCanvasX(p.x), y: this.toCanvasY(p.y) };
+        });
 
-        for (let i = 1; i < vertices.length; i++) {
-            const transformed = this.transformSensorToRoom(vertices[i].x, vertices[i].y);
-            this.ctx.lineTo(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y));
-        }
-        this.ctx.closePath();
-
+        this.tracePolygonPath(points);
         this.ctx.fillStyle = color.fill;
         this.ctx.fill();
 
@@ -1652,60 +1642,14 @@ export class RadarCanvas {
         this.ctx.lineWidth = isSelected ? 3 : 2;
         this.ctx.stroke();
 
-        if (this.isCornerMount()) {
-            // Bounding box (dashed) in sensor axes - this is what the sensor receives
-            const bounds = this.getSensorRectCanvasPoints(zone.x1, zone.y1, zone.x2, zone.y2);
-            this.ctx.setLineDash([4, 4]);
-            this.ctx.strokeStyle = color.border;
-            this.ctx.lineWidth = 1;
-            this.tracePolygonPath(bounds);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
-
-            this.drawZoneLabel(zone, index, color, bounds);
-            this.drawPolygonVertices(vertices, color);
-            return;
-        }
-
-        // Draw bounding box outline (dashed) to show what sensor receives
-        const x1 = this.toCanvasX(zone.x1);
-        const y1 = this.toCanvasY(zone.y1);
-        const x2 = this.toCanvasX(zone.x2);
-        const y2 = this.toCanvasY(zone.y2);
-
-        this.ctx.setLineDash([4, 4]);
-        this.ctx.strokeStyle = color.border;
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-        this.ctx.setLineDash([]);
-
-        // Label - centered inside the zone (skipRotation since zones are outside ctx.rotate)
-        const centerX = (x1 + x2) / 2;
-        const centerY = (y1 + y2) / 2;
-        const zoneType = zone.zoneType === 'interference' ? 'Interference' : 'Detection';
-        // Draw zone number (on top)
-        this.drawUprightText(`Zone ${index + 1}`, centerX, centerY + 8, {
-            font: 'bold 12px sans-serif',
-            color: color.border,
-            align: 'center',
-            skipRotation: true
-        });
-        // Draw zone type below
-        this.drawUprightText(`(${zoneType})`, centerX, centerY - 8, {
-            font: '11px sans-serif',
-            color: color.border,
-            align: 'center',
-            skipRotation: true
-        });
-
-        // Draw vertex points (using transformed coordinates)
+        this.drawZoneLabel(zone, index, color, points);
         this.drawPolygonVertices(vertices, color);
     }
 
     drawPolygonVertices(vertices, color) {
         this.ctx.fillStyle = color.border;
         vertices.forEach(v => {
-            const transformed = this.transformSensorToRoom(v.x, v.y);
+            const transformed = this.edgeToDisplay(v.x, v.y);
             this.ctx.beginPath();
             this.ctx.arc(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y), 4, 0, Math.PI * 2);
             this.ctx.fill();
@@ -1720,26 +1664,15 @@ export class RadarCanvas {
             // For polygons, draw handles at each vertex
             if (zone.vertices) {
                 zone.vertices.forEach(v => {
-                    const transformed = this.transformSensorToRoom(v.x, v.y);
+                    const transformed = this.edgeToDisplay(v.x, v.y);
                     this.drawHandle(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y));
                 });
             }
-        } else if (this.isCornerMount()) {
-            // Tilted rectangle: handles at the 4 corners + 4 edge midpoints (sensor axes)
-            const midX = (zone.x1 + zone.x2) / 2;
-            const midY = (zone.y1 + zone.y2) / 2;
-            [
-                [zone.x1, zone.y1], [zone.x2, zone.y1], [zone.x1, zone.y2], [zone.x2, zone.y2],
-                [midX, zone.y1], [midX, zone.y2], [zone.x1, midY], [zone.x2, midY]
-            ].forEach(([sx, sy]) => {
-                const transformed = this.transformSensorToRoom(sx, sy);
-                this.drawHandle(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y));
-            });
         } else {
             // For rectangles, draw 8 handles (corners + midpoints)
             // Transform coordinates the same way as zones/targets
-            const corner1 = this.transformSensorToRoom(zone.x1, zone.y1);
-            const corner2 = this.transformSensorToRoom(zone.x2, zone.y2);
+            const corner1 = this.edgeToDisplay(zone.x1, zone.y1);
+            const corner2 = this.edgeToDisplay(zone.x2, zone.y2);
             const x1 = this.toCanvasX(corner1.x);
             const y1 = this.toCanvasY(corner1.y);
             const x2 = this.toCanvasX(corner2.x);
@@ -1793,15 +1726,9 @@ export class RadarCanvas {
      * @param {boolean} isEdge - If true, use edge colors instead of zone colors
      */
     drawRectanglePreview(rect, isEdge = false) {
-        if (this.isCornerMount() && !isEdge) {
-            this.drawTiltedRectanglePreview(rect);
-            return;
-        }
-
-        // Transform coordinates the same way as zones/targets (edges via edgeToDisplay)
-        const transform = isEdge ? this.edgeToDisplay.bind(this) : this.transformSensorToRoom.bind(this);
-        const corner1 = transform(rect.x1, rect.y1);
-        const corner2 = transform(rect.x2, rect.y2);
+        // Zones and edges share the same coordinates
+        const corner1 = this.edgeToDisplay(rect.x1, rect.y1);
+        const corner2 = this.edgeToDisplay(rect.x2, rect.y2);
         const x1 = this.toCanvasX(corner1.x);
         const y1 = this.toCanvasY(corner1.y);
         const x2 = this.toCanvasX(corner2.x);
@@ -1828,42 +1755,17 @@ export class RadarCanvas {
     }
 
     /**
-     * Corner mount: zone preview drawn as a tilted rectangle (sensor axes)
-     */
-    drawTiltedRectanglePreview(rect) {
-        const points = this.getSensorRectCanvasPoints(rect.x1, rect.y1, rect.x2, rect.y2);
-
-        this.tracePolygonPath(points);
-        this.ctx.fillStyle = this.COLORS.preview;
-        this.ctx.fill();
-        this.ctx.setLineDash([6, 4]);
-        this.ctx.strokeStyle = this.COLORS.previewBorder;
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
-        this.ctx.setLineDash([]);
-
-        const width = Math.round(Math.abs(rect.x2 - rect.x1));
-        const height = Math.round(Math.abs(rect.y2 - rect.y1));
-        const centerX = points.reduce((sum, p) => sum + p.x, 0) / 4;
-        const topY = Math.min(...points.map(p => p.y));
-        this.drawUprightText(`${width}mm × ${height}mm`, centerX, topY - 10, {
-            font: '12px monospace',
-            color: this.COLORS.previewBorder
-        });
-    }
-
-    /**
      * Draw polygon preview while drawing
      */
     drawPolygonPreview(vertices) {
         if (vertices.length === 0) return;
 
         this.ctx.beginPath();
-        const first = this.transformSensorToRoom(vertices[0].x, vertices[0].y);
+        const first = this.edgeToDisplay(vertices[0].x, vertices[0].y);
         this.ctx.moveTo(this.toCanvasX(first.x), this.toCanvasY(first.y));
 
         for (let i = 1; i < vertices.length; i++) {
-            const transformed = this.transformSensorToRoom(vertices[i].x, vertices[i].y);
+            const transformed = this.edgeToDisplay(vertices[i].x, vertices[i].y);
             this.ctx.lineTo(this.toCanvasX(transformed.x), this.toCanvasY(transformed.y));
         }
 
@@ -1884,7 +1786,7 @@ export class RadarCanvas {
         // Draw vertex points
         this.ctx.fillStyle = this.COLORS.previewBorder;
         vertices.forEach((v, i) => {
-            const p = this.isCornerMount() ? this.transformSensorToRoom(v.x, v.y) : v;
+            const p = this.edgeToDisplay(v.x, v.y);
             this.ctx.beginPath();
             this.ctx.arc(this.toCanvasX(p.x), this.toCanvasY(p.y), i === 0 ? 6 : 4, 0, Math.PI * 2);
             this.ctx.fill();

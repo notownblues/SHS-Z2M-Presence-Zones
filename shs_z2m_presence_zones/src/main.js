@@ -2,7 +2,7 @@ import { RadarCanvas } from './radarCanvas.js';
 import { ZoneManager } from './zoneManager.js';
 import { StorageManager } from './storageManager.js';
 import { DrawingManager } from './drawingManager.js';
-import { outlineFromEdges, BOUNDARY_MIN_POINTS } from './roomBoundary.js';
+import { outlineFromEdges, BOUNDARY_MIN_POINTS, ZONE_MAX_POINTS } from './roomBoundary.js';
 
 // LocalStorage key for saving room name
 const STORAGE_KEY = 'ld2450_zone_config_settings';
@@ -535,6 +535,95 @@ function getSensorBoundary() {
     });
 }
 
+/**
+ * Zone shape for the sensor, in sensor coordinates.
+ * polygon: the zone's corners, used by firmware v1.3.0+ ([] = plain rectangle). Corner mounts
+ *   always send one, since a room-aligned rectangle is a tilted shape in sensor axes.
+ * x1..y2: rectangle for older firmware - the polygon's bounding box, clamped to the sensor range.
+ */
+function getSensorZoneShape(zone) {
+    const isCorner = radarCanvas.isCornerMount();
+    const isPolygon = zone.shapeType === 'polygon' && Array.isArray(zone.vertices) && zone.vertices.length >= 3;
+    if (!zone.enabled || (!isCorner && !isPolygon)) {
+        return { x1: zone.x1, y1: zone.y1, x2: zone.x2, y2: zone.y2, polygon: [] };
+    }
+
+    const points = isPolygon
+        ? zone.vertices.slice(0, ZONE_MAX_POINTS)
+        : [{ x: zone.x1, y: zone.y1 }, { x: zone.x2, y: zone.y1 }, { x: zone.x2, y: zone.y2 }, { x: zone.x1, y: zone.y2 }];
+    const polygon = points.map(p => {
+        const sensor = isCorner ? radarCanvas.transformRoomToSensor(p.x, p.y) : p;
+        return { x: Math.round(sensor.x), y: Math.round(sensor.y) };
+    });
+
+    const range = radarCanvas.SENSOR_RANGE;
+    const clampX = v => Math.max(range.X_MIN, Math.min(range.X_MAX, v));
+    const clampY = v => Math.max(range.Y_MIN, Math.min(range.Y_MAX, v));
+    const xs = polygon.map(p => p.x);
+    const ys = polygon.map(p => p.y);
+    return {
+        x1: clampX(Math.min(...xs)), y1: clampY(Math.min(...ys)),
+        x2: clampX(Math.max(...xs)), y2: clampY(Math.max(...ys)),
+        polygon
+    };
+}
+
+/**
+ * Apply a point conversion to a zone or edge (rectangle x1..y2, plus polygon vertices)
+ */
+function convertShapeCoords(shape, convert) {
+    if (Array.isArray(shape.vertices) && shape.vertices.length > 0) {
+        shape.vertices = shape.vertices.map(v => convert(v.x, v.y));
+    }
+    const a = convert(shape.x1, shape.y1);
+    const b = convert(shape.x2, shape.y2);
+    shape.x1 = Math.min(a.x, b.x);
+    shape.y1 = Math.min(a.y, b.y);
+    shape.x2 = Math.max(a.x, b.x);
+    shape.y2 = Math.max(a.y, b.y);
+}
+
+/**
+ * Zones, room edges and the outline are stored in sensor coordinates for wall mounts and
+ * in room coordinates for corner mounts. Convert them when the mount type changes so they
+ * stay where they are on the map (wall transforms are 90° steps, so rectangles stay rectangles).
+ */
+function convertEdgeCoordsForMount(toCorner) {
+    const rotation = state.ui.mapRotation || 0;
+    const convert = (x, y) => {
+        const p = toCorner
+            ? radarCanvas.wallSensorToRoom(x, y, rotation)
+            : radarCanvas.wallRoomToSensor(x, y, rotation);
+        return { x: Math.round(p.x), y: Math.round(p.y) };
+    };
+
+    state.zones.zones.forEach(zone => convertShapeCoords(zone, convert));
+    (state.annotations.edges || []).forEach(edge => convertShapeCoords(edge, convert));
+    if (Array.isArray(state.annotations.boundary)) {
+        state.annotations.boundary = state.annotations.boundary.map(p => convert(p.x, p.y));
+    }
+}
+
+/**
+ * Corner rooms saved before 2.10.0 kept zones in sensor coordinates (drawn tilted).
+ * Convert them to room coordinates with their exact shape: rectangles become 4-corner polygons.
+ */
+function migrateCornerZonesToRoom(zones) {
+    // Unused slots keep their default rectangle
+    zones.filter(zone => zone.enabled).forEach(zone => {
+        const isPolygon = zone.shapeType === 'polygon' && Array.isArray(zone.vertices) && zone.vertices.length >= 3;
+        const points = isPolygon
+            ? zone.vertices
+            : [{ x: zone.x1, y: zone.y1 }, { x: zone.x2, y: zone.y1 }, { x: zone.x2, y: zone.y2 }, { x: zone.x1, y: zone.y2 }];
+        zone.shapeType = 'polygon';
+        zone.vertices = points.map(p => {
+            const r = radarCanvas.cornerSensorToRoom(p.x, p.y);
+            return { x: Math.round(r.x), y: Math.round(r.y) };
+        });
+        drawingManager.updatePolygonBounds(zone);
+    });
+}
+
 // Corner positions in rotate-button order (clockwise, like the wall rotation cycle)
 const CORNER_POSITIONS = ['bottom-left', 'top-left', 'top-right', 'bottom-right'];
 
@@ -570,7 +659,11 @@ function applyMountToCanvas() {
  * Handle sensor mount type change (wall/corner)
  */
 function handleMountTypeChange(mountType) {
-    state.ui.mountType = mountType === 'corner' ? 'corner' : 'wall';
+    const newMountType = mountType === 'corner' ? 'corner' : 'wall';
+    if (newMountType !== state.ui.mountType) {
+        convertEdgeCoordsForMount(newMountType === 'corner');
+    }
+    state.ui.mountType = newMountType;
     drawingManager.clearSelection();
     hideShapeActions();
     applyMountToCanvas();
@@ -644,15 +737,13 @@ function showShapeActions(shape) {
         sensorY2 = shape.y + 200;
     }
 
-    // Convert all 4 corners to canvas coordinates (corner mounts draw zones tilted)
-    const corners = (radarCanvas.isCornerMount() && selectedItemType === 'zone')
-        ? radarCanvas.getSensorRectCanvasPoints(sensorX1, sensorY1, sensorX2, sensorY2)
-        : [
-            { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY1) },
-            { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY1) },
-            { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY2) },
-            { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY2) }
-        ];
+    // Convert all 4 corners to canvas coordinates
+    const corners = [
+        { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY1) },
+        { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY1) },
+        { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY2) },
+        { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY2) }
+    ];
 
     // Apply map rotation to all corners (corner mounts never rotate the map)
     const rotation = radarCanvas.isCornerMount() ? 0 : (state.ui.mapRotation || 0);
@@ -1207,43 +1298,22 @@ function publishZoneConfig() {
 
     // Build zone configuration message wrapped in zone_config object
     // Z2M converter expects { zone_config: { zone_type, zone1_enabled, zone1_type, ... } }
-    const config = {
-        zone_config: {
-            zone_type: state.zones.type,
-            zone1_enabled: state.zones.zones[0].enabled,
-            zone1_type: state.zones.zones[0].zoneType || 'detection',
-            zone1_x1: state.zones.zones[0].x1,
-            zone1_y1: state.zones.zones[0].y1,
-            zone1_x2: state.zones.zones[0].x2,
-            zone1_y2: state.zones.zones[0].y2,
-            zone2_enabled: state.zones.zones[1].enabled,
-            zone2_type: state.zones.zones[1].zoneType || 'detection',
-            zone2_x1: state.zones.zones[1].x1,
-            zone2_y1: state.zones.zones[1].y1,
-            zone2_x2: state.zones.zones[1].x2,
-            zone2_y2: state.zones.zones[1].y2,
-            zone3_enabled: state.zones.zones[2].enabled,
-            zone3_type: state.zones.zones[2].zoneType || 'detection',
-            zone3_x1: state.zones.zones[2].x1,
-            zone3_y1: state.zones.zones[2].y1,
-            zone3_x2: state.zones.zones[2].x2,
-            zone3_y2: state.zones.zones[2].y2,
-            zone4_enabled: state.zones.zones[3].enabled,
-            zone4_type: state.zones.zones[3].zoneType || 'detection',
-            zone4_x1: state.zones.zones[3].x1,
-            zone4_y1: state.zones.zones[3].y1,
-            zone4_x2: state.zones.zones[3].x2,
-            zone4_y2: state.zones.zones[3].y2,
-            zone5_enabled: state.zones.zones[4].enabled,
-            zone5_type: state.zones.zones[4].zoneType || 'detection',
-            zone5_x1: state.zones.zones[4].x1,
-            zone5_y1: state.zones.zones[4].y1,
-            zone5_x2: state.zones.zones[4].x2,
-            zone5_y2: state.zones.zones[4].y2,
-            // Room outline: the sensor ignores targets outside it ([] = no outline)
-            boundary: getSensorBoundary()
-        }
-    };
+    const zoneConfig = { zone_type: state.zones.type };
+    state.zones.zones.forEach((zone, i) => {
+        const n = i + 1;
+        const shape = getSensorZoneShape(zone);
+        zoneConfig[`zone${n}_enabled`] = zone.enabled;
+        zoneConfig[`zone${n}_type`] = zone.zoneType || 'detection';
+        zoneConfig[`zone${n}_x1`] = shape.x1;
+        zoneConfig[`zone${n}_y1`] = shape.y1;
+        zoneConfig[`zone${n}_x2`] = shape.x2;
+        zoneConfig[`zone${n}_y2`] = shape.y2;
+        // Zone polygon in sensor coordinates (firmware v1.3.0+, [] = use the rectangle)
+        zoneConfig[`zone${n}_polygon`] = shape.polygon;
+    });
+    // Room outline: the sensor ignores targets outside it ([] = no outline)
+    zoneConfig.boundary = getSensorBoundary();
+    const config = { zone_config: zoneConfig };
 
     // Publish to set topic via backend
     const topic = `${state.mqtt.baseTopic}/set`;
@@ -1380,6 +1450,11 @@ function loadSensorConfig(roomName) {
         state.ui.mountType = config.mountType === 'corner' ? 'corner' : 'wall';
         state.ui.cornerPosition = config.cornerPosition || 'bottom-left';
         applyMountToCanvas();
+
+        // Corner rooms saved before 2.10.0 have zones in sensor coordinates
+        if (state.ui.mountType === 'corner' && config.zoneCoords !== 'edge') {
+            migrateCornerZonesToRoom(state.zones.zones);
+        }
     } else {
         // Reset to defaults
         state.zones = storageManager.getDefaultZoneConfig();
@@ -1728,15 +1803,8 @@ function resetZones() {
 }
 
 function clearZone(zoneIndex) {
-    // Reset zone to default (disabled, zeroed coordinates)
-    state.zones.zones[zoneIndex] = {
-        enabled: false,
-        x1: 0,
-        y1: 0,
-        x2: 0,
-        y2: 0,
-        type: 'detection'
-    };
+    // Reset zone to default (disabled)
+    state.zones.zones[zoneIndex] = storageManager.getDefaultZoneConfig().zones[zoneIndex];
 
     // Update form values
     loadZoneFormValues();
@@ -1745,7 +1813,7 @@ function clearZone(zoneIndex) {
     radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
 
     // Trigger auto-save
-    debouncedSave();
+    triggerAutoSave();
 }
 
 // ============================================================================

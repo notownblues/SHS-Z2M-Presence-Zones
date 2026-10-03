@@ -110,7 +110,9 @@ Set **Sensor Mount** in the Room & Sensor panel:
 - **Wall**: the sensor sits in the middle of a wall. Use the rotate button to pick which wall.
 - **Corner (45°)**: the sensor sits in a room corner, aimed down the room diagonal. Use the rotate button to pick which corner.
 
-The SHS01 checks zones as rectangles along its **own** axes. On a corner mount those axes are at 45° to the walls, so zones appear tilted on the map. That is exactly the area the sensor will check. The dashed outline shows the area zones can cover (±3m sideways, 6m forward from the sensor).
+On a corner mount, zones are drawn square to the walls like on a wall mount, so a zone can cover exactly your dining table or sofa. The sensor's own axes are at 45° to the walls, so the add-on sends each zone as a shape (polygon) in the sensor's coordinates. This needs **SHS01 firmware v1.3.0** or newer; older firmware only understands rectangles along its own axes and uses the smallest such rectangle around the zone instead. The dashed outline shows what the sensor can see (±3m sideways, 6m forward from the sensor). Parts of a zone outside it never detect anyone.
+
+Moving the sensor to another corner leaves your zones where they are in the room. Corner rooms saved with add-on 2.8.0 or 2.9.0 keep their tilted zones (as polygons), so you can drag their corners or redraw them.
 
 ### Drawing Zones
 
@@ -118,8 +120,10 @@ The add-on supports up to **5 detection zones**. To create a zone:
 
 1. Click on a **Zone Card** (Zone 1-5) in the right panel to select it
 2. Click the **Rectangle** or **Polygon** tool in the toolbar
-3. Draw the zone on the radar canvas
+3. Draw the zone on the radar canvas. For a polygon, click each corner (up to 8) and click the first corner or double-click to finish.
 4. The zone coordinates are automatically saved
+
+To edit a zone, select it and drag it to move it. Drag the handles to resize a rectangle, or drag a polygon's corners. Polygon zones are sent to the sensor as drawn; this needs firmware v1.3.0 or newer.
 
 ### Zone Types
 

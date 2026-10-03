@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.10.0
+
+### New: Room-aligned zones for corner mounts
+
+On a corner mount, zones used to appear as tilted diamonds, because the sensor could only check rectangles along its own axes. A zone over a table that is square to the walls was impossible. Now:
+
+- Zones are drawn **square to the walls** on corner mounts, just like on wall mounts. Draw a rectangle over your dining table and that is exactly the area the sensor checks.
+- Moving the sensor to another corner (rotate button) leaves your zones where they are in the room
+- Diagonal or odd-shaped areas: use the **Polygon** tool (up to 8 corners)
+
+### Improved: Polygon zones really work
+
+- Polygon zones are now sent to the sensor as drawn. Until now the sensor received only the rectangle around them.
+- Drag a polygon's corners to reshape it, or drag the whole zone to move it
+
+### Requirements
+
+- Needs **SHS01 firmware v1.3.0** and the **updated Zigbee2MQTT converter** from the [SHS-Z2M-Presence](https://github.com/notownblues/SHS-Z2M-Presence) repository. With older firmware the sensor uses the smallest sensor-aligned rectangle around each corner or polygon zone. Wall-mount rectangle zones work as before with any firmware.
+
+### Notes
+
+- Corner rooms saved with 2.8.0 or 2.9.0 keep their tilted zones exactly, turned into polygons. Delete them and draw a new rectangle to get a room-aligned zone.
+- Switching the Sensor Mount between Wall and Corner keeps zones, room edges and the room outline in place on the map
+- Fixed: the **CLEAR** button on a zone card did not save the change
+
 ## 2.9.0
 
 ### New: Room Outline (the sensor ignores people outside your room)

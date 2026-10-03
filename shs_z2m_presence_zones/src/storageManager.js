@@ -100,6 +100,8 @@ export class StorageManager {
             mapRotation: config.mapRotation || 0,
             mountType: config.mountType || 'wall',
             cornerPosition: config.cornerPosition || 'bottom-left',
+            // Zones are in edge coordinates (room coordinates for corner mounts) since 2.10.0
+            zoneCoords: 'edge',
             lastModified: new Date().toISOString()
         };
 

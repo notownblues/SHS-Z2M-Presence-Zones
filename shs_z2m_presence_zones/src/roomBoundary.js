@@ -10,6 +10,9 @@
 export const BOUNDARY_MIN_POINTS = 3;
 export const BOUNDARY_MAX_POINTS = 8;
 
+// Polygon zones: the firmware (v1.3.0+) stores up to 8 corners per zone
+export const ZONE_MAX_POINTS = 8;
+
 const MAP_RANGE = { X_MIN: -3000, X_MAX: 3000, Y_MIN: 0, Y_MAX: 6000 };
 const SNAP_MM = 100;
 const EDGE_TOLERANCE_MM = 200;
