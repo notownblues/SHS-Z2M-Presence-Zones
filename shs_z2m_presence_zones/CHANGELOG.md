@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.9.0
+
+### New: Room Outline (the sensor ignores people outside your room)
+
+Until now the grey "Room Edge" areas were only a drawing aid. The sensor still counted people it saw through walls. The new **Room Outline** tool replaces them, and the sensor really ignores everything outside the outline.
+
+- Click the **Room Outline** button in the toolbar. If you already drew grey edges along the sides of the map, they are turned into the outline automatically.
+- Drag a corner to move it, or drag the dot in the middle of a wall to move the whole wall
+- Double-click a wall to add a corner (for L-shaped rooms, up to 8 corners), double-click a corner to remove it
+- Click **Save to Sensor** to send it. People outside the outline no longer count towards occupancy, the target count or any zone.
+- People outside the outline are shown faded on the map, so you can see what is being ignored
+- Works with wall and corner mounts
+- Does not use any of your 5 zones
+
+### Requirements
+
+- Needs **SHS01 firmware v1.1.0** and the **updated Zigbee2MQTT converter** from the [SHS-Z2M-Presence](https://github.com/notownblues/SHS-Z2M-Presence) repository. With older firmware the outline is only drawn, not used by the sensor.
+
+### Notes
+
+- Firmware v1.1.0 also fixes **Zone Mode**: Include and Exclude now really decide which Detection zones count towards the sensor's main occupancy. Setups with only Interference zones behave exactly as before.
+- Existing grey edges that don't fit the outline stay on the map and can still be selected and deleted.
+
 ## 2.8.0
 
 ### New: Corner mount support

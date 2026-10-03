@@ -1,7 +1,9 @@
 /**
  * DrawingManager - Handles mouse interactions for zone drawing
- * Manages drawing modes: select, draw-rectangle, draw-polygon, place-furniture, place-entrance
+ * Manages drawing modes: select, draw-rectangle, draw-polygon, place-furniture, place-entrance, edit-outline
  */
+
+import { snapClampPoint, BOUNDARY_MIN_POINTS, BOUNDARY_MAX_POINTS } from './roomBoundary.js';
 
 export class DrawingManager {
     constructor(radarCanvas, state, callbacks) {
@@ -177,6 +179,7 @@ export class DrawingManager {
         this.previewRect = null;
         this.previewPolygon = [];
         this.selectedHandle = null;
+        this.outlineDrag = null;
         // Don't reset selection indexes - preserve selection when switching modes
 
         // Clear preview on canvas
@@ -605,6 +608,9 @@ export class DrawingManager {
             case 'draw-edge':
                 // Edge drawing uses zone-specific coordinates
                 this.handleEdgeMouseDown(edgeCoords);
+                break;
+            case 'edit-outline':
+                this.handleOutlineMouseDown(canvasCoords, edgeCoords);
                 break;
         }
     }
@@ -1053,6 +1059,9 @@ export class DrawingManager {
                     this.currentPoint = edgeCoords;
                     this.updateEdgePreview(edgeCoords);
                 }
+                break;
+            case 'edit-outline':
+                this.handleOutlineMouseMove(canvasCoords, edgeCoords);
                 break;
         }
     }
@@ -1573,6 +1582,9 @@ export class DrawingManager {
                     this.completeEdgeDrawing();
                 }
                 break;
+            case 'edit-outline':
+                this.handleOutlineMouseUp();
+                break;
         }
     }
 
@@ -1643,6 +1655,12 @@ export class DrawingManager {
      * Handle double click for polygon completion
      */
     handleDoubleClick(event) {
+        if (this.mode === 'edit-outline') {
+            const canvasCoords = this.getCanvasCoords(event);
+            this.handleOutlineDoubleClick(canvasCoords, this.toEdgeCoords(canvasCoords.x, canvasCoords.y));
+            return;
+        }
+
         if (this.mode !== 'draw-polygon') return;
 
         if (this.polygonVertices.length >= 3) {
@@ -1926,6 +1944,121 @@ export class DrawingManager {
     /**
      * Handle edge drawing mouse down - start drawing an edge rectangle
      */
+    /**
+     * Room outline editing (mode 'edit-outline').
+     * The outline lives in state.annotations.boundary, in edge coordinates.
+     * Drag a corner to move it, drag a wall's midpoint handle to move the wall,
+     * double-click a wall to add a corner, double-click a corner to remove it.
+     */
+    getOutlineCanvasPoints() {
+        return (this.state.annotations.boundary || []).map(p => this.toCanvasCoordsForEdge(p.x, p.y));
+    }
+
+    getOutlineHandleAt(canvasX, canvasY) {
+        const points = this.getOutlineCanvasPoints();
+        const near = (p) => Math.hypot(canvasX - p.x, canvasY - p.y) <= this.handleSize;
+
+        for (let i = 0; i < points.length; i++) {
+            if (near(points[i])) return { type: 'corner', index: i };
+        }
+        for (let i = 0; i < points.length; i++) {
+            const next = points[(i + 1) % points.length];
+            if (near({ x: (points[i].x + next.x) / 2, y: (points[i].y + next.y) / 2 })) {
+                return { type: 'wall', index: i };
+            }
+        }
+        return null;
+    }
+
+    getOutlineWallAt(canvasX, canvasY, tolerance = 8) {
+        const points = this.getOutlineCanvasPoints();
+        for (let i = 0; i < points.length; i++) {
+            const a = points[i];
+            const b = points[(i + 1) % points.length];
+            const lenSq = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+            if (lenSq === 0) continue;
+            const t = Math.max(0, Math.min(1, ((canvasX - a.x) * (b.x - a.x) + (canvasY - a.y) * (b.y - a.y)) / lenSq));
+            if (Math.hypot(canvasX - (a.x + t * (b.x - a.x)), canvasY - (a.y + t * (b.y - a.y))) <= tolerance) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    handleOutlineMouseDown(canvasCoords, edgeCoords) {
+        const boundary = this.state.annotations.boundary;
+        if (!boundary) return;
+
+        const handle = this.getOutlineHandleAt(canvasCoords.x, canvasCoords.y);
+        if (!handle) return;
+
+        this.outlineDrag = {
+            ...handle,
+            start: edgeCoords,
+            original: boundary.map(p => ({ ...p }))
+        };
+    }
+
+    handleOutlineMouseMove(canvasCoords, edgeCoords) {
+        const boundary = this.state.annotations.boundary;
+        if (!boundary) return;
+
+        if (!this.outlineDrag) {
+            const handle = this.getOutlineHandleAt(canvasCoords.x, canvasCoords.y);
+            this.canvas.style.cursor = handle ? 'move' : 'default';
+            return;
+        }
+
+        const { type, index, start, original } = this.outlineDrag;
+        const dx = edgeCoords.x - start.x;
+        const dy = edgeCoords.y - start.y;
+        const moved = (i) => snapClampPoint({ x: original[i].x + dx, y: original[i].y + dy });
+
+        boundary[index] = moved(index);
+        if (type === 'wall') {
+            const next = (index + 1) % boundary.length;
+            boundary[next] = moved(next);
+        }
+    }
+
+    handleOutlineMouseUp() {
+        if (!this.outlineDrag) return;
+        this.outlineDrag = null;
+        if (this.callbacks.onBoundaryUpdate) {
+            this.callbacks.onBoundaryUpdate();
+        }
+    }
+
+    handleOutlineDoubleClick(canvasCoords, edgeCoords) {
+        const boundary = this.state.annotations.boundary;
+        if (!boundary) return;
+
+        const handle = this.getOutlineHandleAt(canvasCoords.x, canvasCoords.y);
+        if (handle && handle.type === 'corner') {
+            if (boundary.length <= BOUNDARY_MIN_POINTS) {
+                if (this.callbacks.onError) {
+                    this.callbacks.onError(`The room outline needs at least ${BOUNDARY_MIN_POINTS} corners.`);
+                }
+                return;
+            }
+            boundary.splice(handle.index, 1);
+        } else {
+            const wall = this.getOutlineWallAt(canvasCoords.x, canvasCoords.y);
+            if (wall === -1) return;
+            if (boundary.length >= BOUNDARY_MAX_POINTS) {
+                if (this.callbacks.onError) {
+                    this.callbacks.onError(`The room outline can have at most ${BOUNDARY_MAX_POINTS} corners.`);
+                }
+                return;
+            }
+            boundary.splice(wall + 1, 0, snapClampPoint(edgeCoords));
+        }
+
+        if (this.callbacks.onBoundaryUpdate) {
+            this.callbacks.onBoundaryUpdate();
+        }
+    }
+
     handleEdgeMouseDown(sensorCoords) {
         this.isDrawing = true;
         this.startPoint = sensorCoords;

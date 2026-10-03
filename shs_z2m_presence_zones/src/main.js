@@ -2,6 +2,7 @@ import { RadarCanvas } from './radarCanvas.js';
 import { ZoneManager } from './zoneManager.js';
 import { StorageManager } from './storageManager.js';
 import { DrawingManager } from './drawingManager.js';
+import { outlineFromEdges, BOUNDARY_MIN_POINTS } from './roomBoundary.js';
 
 // LocalStorage key for saving room name
 const STORAGE_KEY = 'ld2450_zone_config_settings';
@@ -51,11 +52,12 @@ const state = {
             { enabled: false, shapeType: 'rectangle', x1: -1500, y1: 0, x2: 1500, y2: 3000, vertices: null, zoneType: 'detection' }
         ]
     },
-    // Visual annotations (not sent to sensor)
+    // Visual annotations (not sent to sensor, except the room outline)
     annotations: {
         furniture: [],
         entrances: [],
-        edges: []  // Grey-out areas for room boundaries
+        edges: [],  // Grey-out areas for room boundaries
+        boundary: null  // Room outline [{x, y}] in edge coordinates - sent to sensor, targets outside are ignored
     },
     // Canvas interaction state
     canvas: {
@@ -115,6 +117,11 @@ const elements = {
     // Placement Done
     placementDone: document.getElementById('placementDone'),
     doneBtn: document.getElementById('doneBtn'),
+
+    // Room Outline
+    outlineBar: document.getElementById('outlineBar'),
+    outlineDoneBtn: document.getElementById('outlineDoneBtn'),
+    removeOutlineBtn: document.getElementById('removeOutlineBtn'),
 
     // Map Rotation
     rotateMapBtn: document.getElementById('rotateMapBtn'),
@@ -219,6 +226,10 @@ const drawingManager = new DrawingManager(radarCanvas, state, {
         updateToolbarActiveState(mode);
         hideShapeActions();
         updatePlacementDoneVisibility(mode);
+        updateOutlineEditing(mode);
+    },
+    onBoundaryUpdate: () => {
+        triggerAutoSave();
     },
     onZoneSelect: (index) => {
         radarCanvas.setSelectedZone(index);
@@ -475,6 +486,53 @@ function rotateMap() {
     state.ui.mapRotation = (state.ui.mapRotation + 90) % 360;
     radarCanvas.setMapRotation(state.ui.mapRotation);
     radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+}
+
+/**
+ * Room outline editing: entering 'edit-outline' mode creates the outline if the room has none
+ * (from existing Room Edges where possible) and shows the editing bar.
+ */
+function updateOutlineEditing(mode) {
+    const editing = mode === 'edit-outline';
+
+    if (editing && !hasRoomOutline()) {
+        const { points, usedEdges } = outlineFromEdges(state.annotations.edges || []);
+        state.annotations.boundary = points;
+        // Edges that became part of the outline are no longer needed
+        state.annotations.edges = (state.annotations.edges || []).filter(edge => !usedEdges.has(edge));
+        drawingManager.selectedEdgeIndex = null;
+        radarCanvas.setSelectedEdge(null);
+        triggerAutoSave();
+    }
+
+    radarCanvas.setBoundaryEditing(editing);
+    if (elements.outlineBar) {
+        elements.outlineBar.style.display = editing ? 'flex' : 'none';
+    }
+}
+
+function hasRoomOutline() {
+    return Array.isArray(state.annotations.boundary) && state.annotations.boundary.length >= BOUNDARY_MIN_POINTS;
+}
+
+/**
+ * Remove the room outline (the sensor will count targets anywhere again after Save to Sensor)
+ */
+function removeRoomOutline() {
+    state.annotations.boundary = null;
+    drawingManager.setMode('select');
+    triggerAutoSave();
+}
+
+/**
+ * Room outline in sensor coordinates for the firmware ([] = no outline)
+ */
+function getSensorBoundary() {
+    if (!hasRoomOutline()) return [];
+    return state.annotations.boundary.map(p => {
+        const sensor = radarCanvas.isCornerMount() ? radarCanvas.transformRoomToSensor(p.x, p.y) : p;
+        return { x: Math.round(sensor.x), y: Math.round(sensor.y) };
+    });
 }
 
 // Corner positions in rotate-button order (clockwise, like the wall rotation cycle)
@@ -1181,7 +1239,9 @@ function publishZoneConfig() {
             zone5_x1: state.zones.zones[4].x1,
             zone5_y1: state.zones.zones[4].y1,
             zone5_x2: state.zones.zones[4].x2,
-            zone5_y2: state.zones.zones[4].y2
+            zone5_y2: state.zones.zones[4].y2,
+            // Room outline: the sensor ignores targets outside it ([] = no outline)
+            boundary: getSensorBoundary()
         }
     };
 
@@ -1205,7 +1265,8 @@ function publishZoneConfig() {
         alert(
             `Zone configuration applied!\n\n` +
             `Mode: ${zoneModeNames[state.zones.type]}\n` +
-            `Enabled: ${zoneDescriptions || 'None'}\n\n` +
+            `Enabled: ${zoneDescriptions || 'None'}\n` +
+            `Room outline: ${hasRoomOutline() ? `${state.annotations.boundary.length} corners` : 'None'}\n\n` +
             `Check serial output for firmware confirmation.`
         );
     } else {
@@ -1299,7 +1360,8 @@ function loadSensorConfig(roomName) {
         state.annotations = {
             furniture: annotations.furniture || [],
             entrances: annotations.entrances || [],
-            edges: annotations.edges || []
+            edges: annotations.edges || [],
+            boundary: annotations.boundary || null
         };
 
         // Load MQTT topic if saved with the config - trigger reconnect
@@ -1844,6 +1906,14 @@ if (elements.doneBtn) {
 // Map Rotate Button
 if (elements.rotateMapBtn) {
     elements.rotateMapBtn.addEventListener('click', rotateMap);
+}
+
+// Room Outline editing bar
+if (elements.outlineDoneBtn) {
+    elements.outlineDoneBtn.addEventListener('click', () => drawingManager.setMode('select'));
+}
+if (elements.removeOutlineBtn) {
+    elements.removeOutlineBtn.addEventListener('click', removeRoomOutline);
 }
 
 // Sensor Mount Selector

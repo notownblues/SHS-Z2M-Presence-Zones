@@ -185,8 +185,18 @@ Place furniture on your floor plan to visualize your room layout. Supported obje
 | **Rectangle** | Draw rectangular zones |
 | **Polygon** | Draw polygon zones (click to add points) |
 | **Door/Entrance** | Mark room entrances |
-| **Room Edge** | Grey out areas outside the room |
+| **Room Outline** | Mark the room's walls. The sensor ignores people outside it (needs firmware v1.1.0) |
 | **Rotate Map** | Rotate the entire map 90° |
+
+### Room Outline
+
+The sensor can see through walls, so people in the next room can keep it "occupied". Use the **Room Outline** tool to mark your room's walls:
+
+1. Click **Room Outline** in the toolbar. An outline appears around the map, or around your existing grey Room Edges.
+2. Drag the corners, or drag the dot in the middle of a wall to move the whole wall. Double-click a wall to add a corner (up to 8, for L-shaped rooms) and double-click a corner to remove it.
+3. Click **Done**, then **Save to Sensor**.
+
+People outside the outline are drawn faded on the map. The sensor ignores them for occupancy, the target count and zones. The outline does not use any of the 5 zones. It needs SHS01 firmware v1.1.0 and the matching Zigbee2MQTT converter.
 
 ### Position Reporting Toggle
 

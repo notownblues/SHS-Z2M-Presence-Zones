@@ -210,7 +210,8 @@ export class StorageManager {
         return {
             furniture: [],
             entrances: [],
-            edges: []
+            edges: [],
+            boundary: null
         };
     }
 

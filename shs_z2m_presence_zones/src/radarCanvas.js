@@ -3,6 +3,8 @@
  * Draws sensor origin, detection zones, and real-time target positions
  */
 
+import { pointInPolygon, BOUNDARY_MIN_POINTS } from './roomBoundary.js';
+
 export class RadarCanvas {
     constructor(canvas) {
         this.canvas = canvas;
@@ -32,6 +34,8 @@ export class RadarCanvas {
         this.mapRotation = 0; // 0, 90, 180, 270
         this.mountType = 'wall'; // 'wall' or 'corner'
         this.cornerPosition = 'bottom-left'; // corner mount: which room corner the sensor is in
+        this.boundary = null; // room outline (edge coordinates), set each frame from annotations
+        this.boundaryEditing = false;
 
         // Initialize
         this.resize();
@@ -374,6 +378,24 @@ export class RadarCanvas {
         this.selectedEdgeIndex = index;
     }
 
+    setBoundaryEditing(editing) {
+        this.boundaryEditing = editing;
+    }
+
+    hasBoundary() {
+        return Array.isArray(this.boundary) && this.boundary.length >= BOUNDARY_MIN_POINTS;
+    }
+
+    /**
+     * Whether a target (sensor coordinates) is inside the room outline.
+     * The outline is stored in edge coordinates (sensor for wall mounts, room for corner mounts).
+     */
+    isTargetInsideBoundary(target) {
+        if (!this.hasBoundary()) return true;
+        const p = this.isCornerMount() ? this.transformSensorToRoom(target.x, target.y) : target;
+        return pointInPolygon(p.x, p.y, this.boundary);
+    }
+
     /**
      * Main draw function - called every frame
      */
@@ -411,6 +433,12 @@ export class RadarCanvas {
         // Draw edges OUTSIDE the rotated context (like zones) for consistent coordinate handling
         if (annotations && annotations.edges) {
             this.drawEdges(annotations.edges);
+        }
+
+        // Room outline: grey out everything outside it
+        this.boundary = annotations ? annotations.boundary : null;
+        if (this.hasBoundary()) {
+            this.drawBoundary(this.boundary);
         }
 
         // Draw zones OUTSIDE the rotated context using explicit transformation (like targets)
@@ -1877,6 +1905,22 @@ export class RadarCanvas {
         const x = this.toCanvasX(transformed.x);
         const y = this.toCanvasY(transformed.y);
 
+        // Targets outside the room outline are ignored by the sensor - draw them faded
+        if (!this.isTargetInsideBoundary(target)) {
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.35;
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 15, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.fillStyle = '#4a7ce8';
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 11, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+            return;
+        }
+
         // Pulsating outer ring (blue, animates)
         const pulseRadius = 24 + Math.sin(Date.now() / 300 + index) * 5;
         this.ctx.strokeStyle = 'rgba(74, 124, 232, 0.6)';
@@ -1896,6 +1940,50 @@ export class RadarCanvas {
         this.ctx.beginPath();
         this.ctx.arc(x, y, 11, 0, Math.PI * 2);
         this.ctx.fill();
+    }
+
+    /**
+     * Draw the room outline: grey out everything outside it, plus edit handles when editing
+     */
+    drawBoundary(points) {
+        const canvasPoints = points.map(p => {
+            const display = this.edgeToDisplay(p.x, p.y);
+            return { x: this.toCanvasX(display.x), y: this.toCanvasY(display.y) };
+        });
+
+        // Fill the canvas minus the outline
+        this.ctx.beginPath();
+        this.ctx.rect(0, 0, this.width, this.height);
+        this.ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
+        for (let i = 1; i < canvasPoints.length; i++) {
+            this.ctx.lineTo(canvasPoints[i].x, canvasPoints[i].y);
+        }
+        this.ctx.closePath();
+        this.ctx.fillStyle = this.COLORS.edge;
+        this.ctx.fill('evenodd');
+
+        // Walls
+        this.tracePolygonPath(canvasPoints);
+        this.ctx.strokeStyle = this.boundaryEditing ? this.COLORS.selection : this.COLORS.edgeBorder;
+        this.ctx.lineWidth = this.boundaryEditing ? 2 : 1.5;
+        this.ctx.stroke();
+
+        if (!this.boundaryEditing) return;
+
+        // Wall handles (drag to move a wall) at each wall's midpoint
+        canvasPoints.forEach((p, i) => {
+            const next = canvasPoints[(i + 1) % canvasPoints.length];
+            this.ctx.fillStyle = this.COLORS.handle;
+            this.ctx.strokeStyle = this.COLORS.selection;
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.arc((p.x + next.x) / 2, (p.y + next.y) / 2, 6, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.stroke();
+        });
+
+        // Corner handles
+        canvasPoints.forEach(p => this.drawHandle(p.x, p.y));
     }
 
     /**

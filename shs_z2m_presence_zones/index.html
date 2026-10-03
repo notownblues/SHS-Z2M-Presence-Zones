@@ -312,10 +312,10 @@
                                 <circle cx="16" cy="4" r="2" fill="#95A5A6"/>
                             </svg>
                         </button>
-                        <button class="tool-btn" data-mode="draw-edge" title="Draw Room Edge (Grey-out Area)">
+                        <button class="tool-btn" data-mode="edit-outline" title="Room Outline (sensor ignores targets outside it)">
                             <svg width="18" height="18" viewBox="0 0 24 24">
-                                <rect x="2" y="2" width="20" height="20" rx="2" fill="none" stroke="#7F8C8D" stroke-width="2" stroke-dasharray="4 2"/>
-                                <rect x="4" y="4" width="6" height="16" fill="#6B7280" opacity="0.6"/>
+                                <rect x="2" y="2" width="20" height="20" rx="2" fill="#6B7280" opacity="0.35"/>
+                                <path d="M5 5 H15 V11 H19 V19 H5 Z" style="fill: var(--bg-secondary)" stroke="#7F8C8D" stroke-width="2" stroke-linejoin="round"/>
                             </svg>
                         </button>
                     </div>
@@ -382,6 +382,20 @@
                                 <path d="M18 6L6 18M6 6l12 12"/>
                             </svg>
                         </button>
+                    </div>
+
+                    <!-- Room Outline editing bar -->
+                    <div class="outline-bar" id="outlineBar" style="display: none;">
+                        <span class="outline-hint">Drag corners or walls. Double-click a wall to add a corner, or a corner to remove it. The sensor ignores targets outside the outline after Save to Sensor.</span>
+                        <div class="outline-actions">
+                            <button class="outline-remove-btn" id="removeOutlineBtn">Remove outline</button>
+                            <button class="done-btn" id="outlineDoneBtn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                                Done
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Done Button for Placement Mode -->

@@ -448,6 +448,61 @@ body {
     box-shadow: var(--shadow-lg);
 }
 
+.outline-bar {
+    position: absolute;
+    top: var(--spacing-sm);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(560px, calc(100% - 2 * var(--spacing-md)));
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+}
+
+.outline-hint {
+    flex: 1;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.outline-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+.outline-remove-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.outline-remove-btn:hover {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+@media (max-width: 600px) {
+    .outline-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .outline-actions {
+        justify-content: flex-end;
+    }
+}
+
 .done-hint {
     font-size: 0.7rem;
     color: var(--text-secondary);
