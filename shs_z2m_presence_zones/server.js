@@ -173,6 +173,26 @@ const staticPath = path.join(__dirname, 'www');
 console.log(`[SERVER] Serving static files from: ${staticPath}`);
 app.use(express.static(staticPath));
 
+// Shared secret used to authenticate API/config requests.
+// Required for direct (non-ingress) deployments such as docker-standalone;
+// Home Assistant ingress mode may also set this via the addon options.
+const API_KEY = process.env.API_KEY || config.api_key || '';
+
+function requireApiKey(req, res, next) {
+    if (!API_KEY) {
+        console.error('[AUTH] API_KEY is not configured - rejecting request for safety');
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const provided = req.headers['x-api-key'];
+    if (provided === API_KEY) {
+        return next();
+    }
+    console.log(`[AUTH] Rejected unauthenticated request to ${req.method} ${req.url}`);
+    res.status(401).json({ error: 'Unauthorized' });
+}
+
+app.use(['/config.json', '/api'], requireApiKey);
+
 // Serve config endpoint for frontend
 app.get('/config.json', (req, res) => {
     res.json({
