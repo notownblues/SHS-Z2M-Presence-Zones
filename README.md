@@ -11,7 +11,9 @@
 This Home Assistant add-on provides a web-based interface for configuring detection zones on your [SHS Z2M Presence sensor](https://github.com/notownblues/SHS-Z2M-Presence). It connects directly to your Zigbee2MQTT broker via MQTT WebSocket and allows you to:
 
 - Visualize real-time target positions on an interactive radar canvas
-- Draw and configure up to 5 detection zones
+- Mount the sensor in the middle of a wall or in a **room corner (45°)**
+- Draw up to 5 zones as rectangles or polygons (up to 8 corners), square to your walls even on a corner mount
+- Mark a **room outline** so the sensor ignores people seen through walls
 - Place furniture and room objects on a virtual floor plan
 - Save and load multiple room configurations
 - Toggle position reporting mode directly from the UI
@@ -110,6 +112,14 @@ Set **Sensor Mount** in the Room & Sensor panel:
 - **Wall**: the sensor sits in the middle of a wall. Use the rotate button to pick which wall.
 - **Corner (45°)**: the sensor sits in a room corner, aimed down the room diagonal. Use the rotate button to pick which corner.
 
+#### Setting up a corner mount
+
+1. Set **Sensor Mount** to **Corner (45°)**.
+2. Click the rotate button until the sensor icon sits in the corner where your sensor really is.
+3. Optionally, place your furniture and draw the **Room Outline**, so the map matches your room.
+4. Draw your zones over the furniture with the **Rectangle** tool, or the **Polygon** tool for odd shapes.
+5. Click **Save to Sensor**.
+
 On a corner mount, zones are drawn square to the walls like on a wall mount, so a zone can cover exactly your dining table or sofa. The sensor's own axes are at 45° to the walls, so the add-on sends each zone as a shape (polygon) in the sensor's coordinates. This needs **SHS01 firmware v1.3.0** or newer; older firmware only understands rectangles along its own axes and uses the smallest such rectangle around the zone instead. The dashed outline shows what the sensor can see (±3m sideways, 6m forward from the sensor). Parts of a zone outside it never detect anyone.
 
 Moving the sensor to another corner leaves your zones where they are in the room. Corner rooms saved with add-on 2.8.0 or 2.9.0 keep their tilted zones (as polygons), so you can drag their corners or redraw them.
@@ -147,6 +157,18 @@ The global **Zone Mode** determines how all zones work together:
 ### Saving Zones to Sensor
 
 After drawing your zones, click **Save to Sensor** to send the configuration to your SHS01 sensor via Zigbee2MQTT. The zones are stored in the sensor's flash memory and persist across power cycles.
+
+### Firmware Requirements
+
+Some features need a recent SHS01 firmware and the matching Zigbee2MQTT converter from the [SHS-Z2M-Presence releases](https://github.com/notownblues/SHS-Z2M-Presence/releases):
+
+| Feature | Firmware |
+|---------|----------|
+| Rectangle zones on a wall mount, zone types and Zone Mode | any |
+| Room Outline | v1.1.0+ |
+| Corner-mount zones square to the walls, polygon zones | v1.3.0+ |
+
+With older firmware, corner and polygon zones still work, but the sensor checks the smallest rectangle along its own axes that covers each zone. From v1.2.0 the sensor can be updated from the Zigbee2MQTT OTA tab; see [OTA Updates](https://github.com/notownblues/SHS-Z2M-Presence#ota-updates-via-zigbee2mqtt).
 
 ---
 
@@ -187,10 +209,10 @@ Place furniture on your floor plan to visualize your room layout. Supported obje
 |------|-------------|
 | **Select** | Select and edit existing zones or objects |
 | **Rectangle** | Draw rectangular zones |
-| **Polygon** | Draw polygon zones (click to add points) |
+| **Polygon** | Draw polygon zones: click to add corners (up to 8). Sent to the sensor as drawn (needs firmware v1.3.0) |
 | **Door/Entrance** | Mark room entrances |
 | **Room Outline** | Mark the room's walls. The sensor ignores people outside it (needs firmware v1.1.0) |
-| **Rotate Map** | Rotate the entire map 90° |
+| **Rotate Map** | Wall mount: rotate the map 90°. Corner mount: move the sensor to the next corner |
 
 ### Room Outline
 
