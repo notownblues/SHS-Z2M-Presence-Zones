@@ -420,6 +420,14 @@
                             <small class="help-text">Name for this room/sensor configuration.</small>
                         </div>
                         <div class="form-group">
+                            <label for="mountTypeSelect">Sensor Mount</label>
+                            <select id="mountTypeSelect">
+                                <option value="wall">Wall</option>
+                                <option value="corner">Corner (45°)</option>
+                            </select>
+                            <small class="help-text">Corner: sensor in a room corner aimed at the diagonal. Use the rotate button to pick the corner. Zones appear tilted because the sensor checks rectangles along its own axes. Furniture and room edges may need repositioning after switching.</small>
+                        </div>
+                        <div class="form-group">
                             <label for="sensorSelector">Saved Rooms</label>
                             <select id="sensorSelector">
                                 <option value="">-- Select a saved room --</option>

@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.8.0
+
+### New: Corner mount support
+
+You can now mount the sensor in a room corner, aimed 45° down the room diagonal.
+
+- New **Sensor Mount** setting in the Room & Sensor panel: **Wall** or **Corner (45°)**
+- In Corner mode the rotate button moves the sensor between the four corners
+- The corner map shows distances from the sensor's corner, its facing direction, its 6m range, and a dashed outline of where zones can go
+- Zones appear tilted 45°, because the sensor checks rectangles along its own axes. What you see is exactly what the sensor checks.
+- Zones drawn past the sensor's range are trimmed automatically, so they are always accepted by the sensor
+- Room edges (grey-out areas) stay aligned with the walls in corner rooms
+- The mount type and corner are saved with each room
+
+### Notes
+
+- Wall mount behaviour is unchanged. Existing rooms load as Wall.
+- If you switch an existing room to Corner, your zones stay correct. Furniture, doors and room edges may need moving.
+
 ## 2.7.2
 
 - Fix target X-axis mirrored when sensor is at bottom of map (0° rotation)

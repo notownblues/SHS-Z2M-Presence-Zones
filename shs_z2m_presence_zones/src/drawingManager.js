@@ -319,6 +319,48 @@ export class DrawingManager {
     }
 
     /**
+     * Convert canvas coords to edge coords.
+     * Wall mounts: edges use the zone coordinate system (unchanged behaviour).
+     * Corner mounts: edges are stored in room coordinates so they stay wall-aligned.
+     */
+    toEdgeCoords(canvasX, canvasY) {
+        if (this.radarCanvas.isCornerMount()) {
+            return {
+                x: this.radarCanvas.toSensorX(canvasX),
+                y: this.radarCanvas.toSensorY(canvasY)
+            };
+        }
+        return this.toSensorCoordsForZone(canvasX, canvasY);
+    }
+
+    /**
+     * Convert edge coords to canvas coords (inverse of toEdgeCoords)
+     */
+    toCanvasCoordsForEdge(x, y) {
+        if (this.radarCanvas.isCornerMount()) {
+            return {
+                x: this.radarCanvas.toCanvasX(x),
+                y: this.radarCanvas.toCanvasY(y)
+            };
+        }
+        return this.toCanvasCoordsForZone(x, y);
+    }
+
+    /**
+     * Corner mounts: the room map extends beyond what the sensor can see, so clamp
+     * zone points to the sensor range (the firmware rejects out-of-range zones).
+     * Wall mounts: returned unchanged.
+     */
+    clampZonePointForMount(point) {
+        if (!this.radarCanvas.isCornerMount()) return point;
+        const range = this.radarCanvas.SENSOR_RANGE;
+        return {
+            x: Math.max(range.X_MIN, Math.min(range.X_MAX, point.x)),
+            y: Math.max(range.Y_MIN, Math.min(range.Y_MAX, point.y))
+        };
+    }
+
+    /**
      * Find next available zone slot (0-2)
      */
     getNextAvailableZoneSlot() {
@@ -508,8 +550,8 @@ export class DrawingManager {
         ];
 
         for (const handle of handles) {
-            // Use zone-specific coordinate conversion
-            const canvasHandle = this.toCanvasCoordsForZone(handle.x, handle.y);
+            // Use edge coordinate conversion (same as zones for wall mounts)
+            const canvasHandle = this.toCanvasCoordsForEdge(handle.x, handle.y);
             const dx = canvasX - canvasHandle.x;
             const dy = canvasY - canvasHandle.y;
             if (Math.sqrt(dx * dx + dy * dy) <= this.handleSize) {
@@ -528,6 +570,7 @@ export class DrawingManager {
         const sensorCoords = this.toSensorCoords(canvasCoords.x, canvasCoords.y);
         // For zones, use zone-specific coordinate conversion
         const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
+        const edgeCoords = this.toEdgeCoords(canvasCoords.x, canvasCoords.y);
 
         // Right-click drag for selected items
         if (event.button === 2) {
@@ -561,7 +604,7 @@ export class DrawingManager {
                 break;
             case 'draw-edge':
                 // Edge drawing uses zone-specific coordinates
-                this.handleEdgeMouseDown(zoneSensorCoords);
+                this.handleEdgeMouseDown(edgeCoords);
                 break;
         }
     }
@@ -572,6 +615,7 @@ export class DrawingManager {
     handleRightClickDrag(canvasCoords, sensorCoords) {
         // For zones, use zone-specific coordinate conversion
         const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
+        const edgeCoords = this.toEdgeCoords(canvasCoords.x, canvasCoords.y);
 
         // Check if we're clicking on the selected zone
         if (this.selectedZoneIndex !== null) {
@@ -622,12 +666,12 @@ export class DrawingManager {
         // Check if we're clicking on the selected edge (use zone coords - edges use same transform)
         if (this.selectedEdgeIndex !== null) {
             const edge = this.state.annotations.edges[this.selectedEdgeIndex];
-            if (edge && this.isPointInEdge(zoneSensorCoords.x, zoneSensorCoords.y, edge)) {
+            if (edge && this.isPointInEdge(edgeCoords.x, edgeCoords.y, edge)) {
                 this.isRightClickDragging = true;
                 this.isDragging = true;
                 this.dragOffset = {
-                    x: zoneSensorCoords.x - (edge.x1 + edge.x2) / 2,
-                    y: zoneSensorCoords.y - (edge.y1 + edge.y2) / 2
+                    x: edgeCoords.x - (edge.x1 + edge.x2) / 2,
+                    y: edgeCoords.y - (edge.y1 + edge.y2) / 2
                 };
                 this.canvas.style.cursor = 'move';
                 return;
@@ -641,6 +685,7 @@ export class DrawingManager {
     handleSelectMouseDown(canvasCoords, sensorCoords) {
         // For zones, use zone-specific coordinate conversion
         const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
+        const edgeCoords = this.toEdgeCoords(canvasCoords.x, canvasCoords.y);
 
         // Check for handle click first (for selected furniture - resizing)
         if (this.selectedFurnitureIndex !== null) {
@@ -708,15 +753,15 @@ export class DrawingManager {
             if (handle) {
                 this.selectedHandle = { ...handle, itemType: 'edge', index: this.selectedEdgeIndex };
                 this.isDragging = true;
-                this.startPoint = zoneSensorCoords;
+                this.startPoint = edgeCoords;
                 return;
             }
             // If clicking on already-selected edge (not handle), start dragging
-            if (edge && this.isPointInEdge(zoneSensorCoords.x, zoneSensorCoords.y, edge)) {
+            if (edge && this.isPointInEdge(edgeCoords.x, edgeCoords.y, edge)) {
                 this.isDragging = true;
                 this.dragOffset = {
-                    x: zoneSensorCoords.x - (edge.x1 + edge.x2) / 2,
-                    y: zoneSensorCoords.y - (edge.y1 + edge.y2) / 2
+                    x: edgeCoords.x - (edge.x1 + edge.x2) / 2,
+                    y: edgeCoords.y - (edge.y1 + edge.y2) / 2
                 };
                 this.canvas.style.cursor = 'move';
                 return;
@@ -766,7 +811,7 @@ export class DrawingManager {
         const edges = this.state.annotations.edges || [];
         for (let i = edges.length - 1; i >= 0; i--) {
             const edge = edges[i];
-            if (this.isPointInEdge(zoneSensorCoords.x, zoneSensorCoords.y, edge)) {
+            if (this.isPointInEdge(edgeCoords.x, edgeCoords.y, edge)) {
                 this.clearOtherSelections('edge');
                 this.selectedEdgeIndex = i;
                 if (this.callbacks.onEdgeSelect) {
@@ -985,6 +1030,7 @@ export class DrawingManager {
         // For zones, use zone-specific coordinate conversion
         const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
         this.currentPoint = zoneSensorCoords; // For zone drawing, use zone coords
+        const edgeCoords = this.toEdgeCoords(canvasCoords.x, canvasCoords.y);
 
         switch (this.mode) {
             case 'select':
@@ -1003,8 +1049,9 @@ export class DrawingManager {
                 break;
             case 'draw-edge':
                 if (this.isDrawing) {
-                    // Edge preview uses zone-specific coordinates
-                    this.updateEdgePreview(zoneSensorCoords);
+                    // Edges use edge coords (same as zone coords for wall mounts, room coords for corner)
+                    this.currentPoint = edgeCoords;
+                    this.updateEdgePreview(edgeCoords);
                 }
                 break;
         }
@@ -1033,6 +1080,7 @@ export class DrawingManager {
     handleSelectMouseMove(canvasCoords, sensorCoords) {
         // For zones, use zone-specific coordinate conversion
         const zoneSensorCoords = this.toSensorCoordsForZone(canvasCoords.x, canvasCoords.y);
+        const edgeCoords = this.toEdgeCoords(canvasCoords.x, canvasCoords.y);
 
         // Handle explicit move mode (Move button was clicked)
         if (this.isMoving) {
@@ -1080,7 +1128,7 @@ export class DrawingManager {
                 if (handle) {
                     this.canvas.style.cursor = this.getHandleCursor(handle.type);
                     return;
-                } else if (this.isPointInEdge(zoneSensorCoords.x, zoneSensorCoords.y, edge)) {
+                } else if (this.isPointInEdge(edgeCoords.x, edgeCoords.y, edge)) {
                     this.canvas.style.cursor = 'move';
                     return;
                 }
@@ -1112,7 +1160,7 @@ export class DrawingManager {
                 this.resizeFurniture(sensorCoords);
             } else if (this.selectedHandle.itemType === 'edge') {
                 // Edge resizing uses zone-specific coordinates
-                this.resizeEdge(zoneSensorCoords);
+                this.resizeEdge(edgeCoords);
             } else {
                 // Zone resizing uses zone-specific coordinates
                 this.resizeZone(zoneSensorCoords);
@@ -1126,7 +1174,7 @@ export class DrawingManager {
             this.moveZone(zoneSensorCoords);
         } else if (this.selectedEdgeIndex !== null) {
             // Edge moving uses zone-specific coordinates
-            this.moveEdge(zoneSensorCoords);
+            this.moveEdge(edgeCoords);
         }
     }
 
@@ -1461,11 +1509,13 @@ export class DrawingManager {
      * Update rectangle preview while drawing
      */
     updateRectanglePreview(sensorCoords) {
+        const start = this.clampZonePointForMount(this.startPoint);
+        const end = this.clampZonePointForMount(sensorCoords);
         this.previewRect = {
-            x1: this.startPoint.x,
-            y1: this.startPoint.y,
-            x2: sensorCoords.x,
-            y2: sensorCoords.y
+            x1: start.x,
+            y1: start.y,
+            x2: end.x,
+            y2: end.y
         };
 
         if (this.callbacks.onPreviewUpdate) {
@@ -1547,11 +1597,15 @@ export class DrawingManager {
         const slot = this.getNextAvailableZoneSlot();
         if (slot === -1) return;
 
+        // Corner mounts: keep the zone inside the sensor range
+        const start = this.clampZonePointForMount(this.startPoint);
+        const end = this.clampZonePointForMount(sensorCoords);
+
         // Snap to 100mm grid
-        const x1 = Math.round(this.startPoint.x / 100) * 100;
-        const y1 = Math.round(this.startPoint.y / 100) * 100;
-        const x2 = Math.round(sensorCoords.x / 100) * 100;
-        const y2 = Math.round(sensorCoords.y / 100) * 100;
+        const x1 = Math.round(start.x / 100) * 100;
+        const y1 = Math.round(start.y / 100) * 100;
+        const x2 = Math.round(end.x / 100) * 100;
+        const y2 = Math.round(end.y / 100) * 100;
 
         // Check minimum size
         if (Math.abs(x2 - x1) < 200 || Math.abs(y2 - y1) < 200) {
@@ -1608,10 +1662,11 @@ export class DrawingManager {
             return;
         }
 
-        // Snap to 100mm grid
+        // Snap to 100mm grid (corner mounts: clamped to the sensor range first)
+        const clamped = this.clampZonePointForMount(sensorCoords);
         const point = {
-            x: Math.round(sensorCoords.x / 100) * 100,
-            y: Math.round(sensorCoords.y / 100) * 100
+            x: Math.round(clamped.x / 100) * 100,
+            y: Math.round(clamped.y / 100) * 100
         };
 
         // Check if clicking near first vertex to close polygon

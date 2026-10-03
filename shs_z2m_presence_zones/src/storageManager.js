@@ -98,6 +98,8 @@ export class StorageManager {
             annotations: config.annotations || this.getDefaultAnnotations(),
             mqttTopic: config.mqttTopic || '',
             mapRotation: config.mapRotation || 0,
+            mountType: config.mountType || 'wall',
+            cornerPosition: config.cornerPosition || 'bottom-left',
             lastModified: new Date().toISOString()
         };
 

@@ -72,7 +72,9 @@ const state = {
     },
     ui: {
         activeZone: 1,
-        mapRotation: 0 // 0, 90, 180, 270 degrees
+        mapRotation: 0, // 0, 90, 180, 270 degrees (wall mount)
+        mountType: 'wall', // 'wall' or 'corner'
+        cornerPosition: 'bottom-left' // corner mount: bottom-left, top-left, top-right, bottom-right
     }
 };
 
@@ -116,6 +118,7 @@ const elements = {
 
     // Map Rotation
     rotateMapBtn: document.getElementById('rotateMapBtn'),
+    mountTypeSelect: document.getElementById('mountTypeSelect'),
 
     // Save Indicator
     saveIndicator: document.getElementById('saveIndicator'),
@@ -464,9 +467,57 @@ function finishPlacement() {
  * Rotate the map view by 90 degrees
  */
 function rotateMap() {
+    if (state.ui.mountType === 'corner') {
+        rotateCorner();
+        return;
+    }
+
     state.ui.mapRotation = (state.ui.mapRotation + 90) % 360;
     radarCanvas.setMapRotation(state.ui.mapRotation);
     radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+}
+
+// Corner positions in rotate-button order (clockwise, like the wall rotation cycle)
+const CORNER_POSITIONS = ['bottom-left', 'top-left', 'top-right', 'bottom-right'];
+
+/**
+ * Corner mount: move the sensor to the next corner
+ */
+function rotateCorner() {
+    const index = CORNER_POSITIONS.indexOf(state.ui.cornerPosition);
+    state.ui.cornerPosition = CORNER_POSITIONS[(index + 1) % CORNER_POSITIONS.length];
+    applyMountToCanvas();
+    radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+    triggerAutoSave();
+}
+
+/**
+ * Push the sensor mount (wall/corner) to the canvas and sync the mount UI.
+ * Corner mounts never rotate the map; the wall rotation is kept in state.ui.mapRotation.
+ */
+function applyMountToCanvas() {
+    const isCorner = state.ui.mountType === 'corner';
+    radarCanvas.setMountType(state.ui.mountType, state.ui.cornerPosition);
+    radarCanvas.setMapRotation(isCorner ? 0 : state.ui.mapRotation);
+
+    if (elements.mountTypeSelect) {
+        elements.mountTypeSelect.value = state.ui.mountType;
+    }
+    if (elements.rotateMapBtn) {
+        elements.rotateMapBtn.title = isCorner ? 'Move Sensor to Next Corner' : 'Rotate Map 90°';
+    }
+}
+
+/**
+ * Handle sensor mount type change (wall/corner)
+ */
+function handleMountTypeChange(mountType) {
+    state.ui.mountType = mountType === 'corner' ? 'corner' : 'wall';
+    drawingManager.clearSelection();
+    hideShapeActions();
+    applyMountToCanvas();
+    radarCanvas.drawFrame(state.sensor.targets, state.zones.zones, state.annotations);
+    triggerAutoSave();
 }
 
 /**
@@ -535,16 +586,18 @@ function showShapeActions(shape) {
         sensorY2 = shape.y + 200;
     }
 
-    // Convert all 4 corners to canvas coordinates
-    const corners = [
-        { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY1) },
-        { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY1) },
-        { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY2) },
-        { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY2) }
-    ];
+    // Convert all 4 corners to canvas coordinates (corner mounts draw zones tilted)
+    const corners = (radarCanvas.isCornerMount() && selectedItemType === 'zone')
+        ? radarCanvas.getSensorRectCanvasPoints(sensorX1, sensorY1, sensorX2, sensorY2)
+        : [
+            { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY1) },
+            { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY1) },
+            { x: radarCanvas.toCanvasX(sensorX1), y: radarCanvas.toCanvasY(sensorY2) },
+            { x: radarCanvas.toCanvasX(sensorX2), y: radarCanvas.toCanvasY(sensorY2) }
+        ];
 
-    // Apply map rotation to all corners
-    const rotation = state.ui.mapRotation || 0;
+    // Apply map rotation to all corners (corner mounts never rotate the map)
+    const rotation = radarCanvas.isCornerMount() ? 0 : (state.ui.mapRotation || 0);
     const cx = radarCanvas.width / 2;
     const cy = radarCanvas.height / 2;
     const angle = rotation * Math.PI / 180;
@@ -1260,12 +1313,20 @@ function loadSensorConfig(roomName) {
             state.ui.mapRotation = config.mapRotation;
             radarCanvas.setMapRotation(config.mapRotation);
         }
+
+        // Load sensor mount (configs saved before corner support are wall mounts)
+        state.ui.mountType = config.mountType === 'corner' ? 'corner' : 'wall';
+        state.ui.cornerPosition = config.cornerPosition || 'bottom-left';
+        applyMountToCanvas();
     } else {
         // Reset to defaults
         state.zones = storageManager.getDefaultZoneConfig();
         state.annotations = storageManager.getDefaultAnnotations();
         state.ui.mapRotation = 0;
         radarCanvas.setMapRotation(0);
+        state.ui.mountType = 'wall';
+        state.ui.cornerPosition = 'bottom-left';
+        applyMountToCanvas();
     }
 
     // Update UI
@@ -1286,7 +1347,9 @@ async function saveCurrentSensorConfig() {
         zones: state.zones,
         annotations: state.annotations,
         mqttTopic: elements.mqttTopic.value,
-        mapRotation: state.ui.mapRotation
+        mapRotation: state.ui.mapRotation,
+        mountType: state.ui.mountType,
+        cornerPosition: state.ui.cornerPosition
     });
 
     // Refresh sensor selector
@@ -1386,6 +1449,9 @@ function handleSensorSelection(event) {
         state.annotations = storageManager.getDefaultAnnotations();
         state.ui.mapRotation = 0;
         radarCanvas.setMapRotation(0);
+        state.ui.mountType = 'wall';
+        state.ui.cornerPosition = 'bottom-left';
+        applyMountToCanvas();
 
         // Update UI
         loadZoneFormValues();
@@ -1778,6 +1844,11 @@ if (elements.doneBtn) {
 // Map Rotate Button
 if (elements.rotateMapBtn) {
     elements.rotateMapBtn.addEventListener('click', rotateMap);
+}
+
+// Sensor Mount Selector
+if (elements.mountTypeSelect) {
+    elements.mountTypeSelect.addEventListener('change', (e) => handleMountTypeChange(e.target.value));
 }
 
 // Zone Cards - click to select zone on canvas, or start drawing if not configured

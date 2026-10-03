@@ -103,6 +103,15 @@ Add this repository to your Home Assistant Add-on Store:
 2. The connection status indicator will turn green when connected
 3. Give your room a name and click **Save Configuration**
 
+### Sensor Mount (Wall or Corner)
+
+Set **Sensor Mount** in the Room & Sensor panel:
+
+- **Wall**: the sensor sits in the middle of a wall. Use the rotate button to pick which wall.
+- **Corner (45°)**: the sensor sits in a room corner, aimed down the room diagonal. Use the rotate button to pick which corner.
+
+The SHS01 checks zones as rectangles along its **own** axes. On a corner mount those axes are at 45° to the walls, so zones appear tilted on the map. That is exactly the area the sensor will check. The dashed outline shows the area zones can cover (±3m sideways, 6m forward from the sensor).
+
 ### Drawing Zones
 
 The add-on supports up to **5 detection zones**. To create a zone:
